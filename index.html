@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>音声プレイヤー — 倍速・字幕対応</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="player-card">
+  <h1>🎧 音声プレイヤー</h1>
+  <p class="tagline">倍速再生(1x / 2x / 3x / 4x)と字幕表示に対応</p>
+
+  <!-- ファイル読み込み -->
+  <section class="file-inputs">
+    <label class="file-label" id="audio-drop">
+      <input type="file" id="audio-file" accept="audio/*,video/mp4,.m4a,.m4b">
+      <span class="file-icon">🎵</span>
+      <span class="file-text" id="audio-file-name">音声ファイルを選択(またはドラッグ&ドロップ)</span>
+    </label>
+    <label class="file-label" id="subtitle-drop">
+      <input type="file" id="subtitle-file" accept=".srt,.vtt,text/vtt">
+      <span class="file-icon">💬</span>
+      <span class="file-text" id="subtitle-file-name">字幕ファイルを選択(.srt / .vtt)</span>
+    </label>
+  </section>
+
+  <!-- 字幕表示 -->
+  <section class="subtitle-display" id="subtitle-display" aria-live="polite">
+    <p class="subtitle-text" id="subtitle-text">字幕はここに表示されます</p>
+  </section>
+
+  <!-- シークバー -->
+  <section class="seek-section">
+    <span class="time" id="current-time">0:00</span>
+    <input type="range" id="seek-bar" min="0" max="100" step="0.1" value="0" aria-label="シークバー">
+    <span class="time" id="duration">0:00</span>
+  </section>
+
+  <!-- 再生コントロール -->
+  <section class="controls">
+    <button class="ctrl-btn" id="back-10" title="10秒戻る">⏪ 10s</button>
+    <button class="ctrl-btn play-btn" id="play-pause" title="再生 / 一時停止" disabled>▶</button>
+    <button class="ctrl-btn" id="forward-10" title="10秒進む">10s ⏩</button>
+  </section>
+
+  <!-- 速度切替 -->
+  <section class="speed-section">
+    <span class="speed-label">再生速度:</span>
+    <div class="speed-buttons" role="group" aria-label="再生速度">
+      <button class="speed-btn active" data-speed="1">1x</button>
+      <button class="speed-btn" data-speed="2">2x</button>
+      <button class="speed-btn" data-speed="3">3x</button>
+      <button class="speed-btn" data-speed="4">4x</button>
+    </div>
+    <label class="pitch-toggle">
+      <input type="checkbox" id="preserve-pitch" checked>
+      音程を維持
+    </label>
+  </section>
+
+  <!-- 音量 -->
+  <section class="volume-section">
+    <span>🔊</span>
+    <input type="range" id="volume" min="0" max="1" step="0.01" value="1" aria-label="音量">
+  </section>
+
+  <audio id="audio" preload="metadata"></audio>
+
+  <footer class="hints">
+    <p>ショートカット: <kbd>Space</kbd> 再生/停止 · <kbd>←</kbd>/<kbd>→</kbd> 10秒移動 · <kbd>1</kbd>-<kbd>4</kbd> 速度切替</p>
+  </footer>
+</main>
+<script src="app.js"></script>
+</body>
+</html>

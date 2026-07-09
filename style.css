@@ -1,0 +1,289 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --bg: #0f1220;
+  --card: #1a1f35;
+  --card-light: #242b4a;
+  --accent: #6c8cff;
+  --accent-strong: #4a6cf7;
+  --text: #e8eaf6;
+  --text-dim: #9aa3c7;
+  --subtitle-bg: #10142a;
+}
+
+body {
+  font-family: "Hiragino Sans", "Yu Gothic", "Noto Sans JP", system-ui, sans-serif;
+  background: linear-gradient(135deg, var(--bg), #1c1235);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.player-card {
+  background: var(--card);
+  border-radius: 20px;
+  padding: 32px;
+  width: 100%;
+  max-width: 640px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+h1 {
+  font-size: 1.5rem;
+  text-align: center;
+}
+
+.tagline {
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  margin: 6px 0 24px;
+}
+
+/* ファイル入力 */
+.file-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.file-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--card-light);
+  border: 2px dashed #3a4470;
+  border-radius: 12px;
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.file-label:hover,
+.file-label.dragover {
+  border-color: var(--accent);
+  background: #2a325a;
+}
+
+.file-label input[type="file"] {
+  display: none;
+}
+
+.file-text {
+  font-size: 0.9rem;
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-label.loaded .file-text {
+  color: var(--text);
+}
+
+/* 字幕表示 */
+.subtitle-display {
+  background: var(--subtitle-bg);
+  border-radius: 12px;
+  min-height: 84px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 20px;
+  margin-bottom: 20px;
+}
+
+.subtitle-text {
+  font-size: 1.15rem;
+  line-height: 1.6;
+  text-align: center;
+  color: var(--text-dim);
+  white-space: pre-line;
+}
+
+.subtitle-text.active {
+  color: #ffe082;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+}
+
+/* シークバー */
+.seek-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.time {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  min-width: 44px;
+  text-align: center;
+}
+
+input[type="range"] {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 3px;
+  background: #3a4470;
+  outline: none;
+  cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--accent);
+  transition: transform 0.15s;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border: none;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+/* 再生コントロール */
+.controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.ctrl-btn {
+  background: var(--card-light);
+  color: var(--text);
+  border: none;
+  border-radius: 999px;
+  padding: 10px 18px;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+}
+
+.ctrl-btn:hover:not(:disabled) {
+  background: #323b66;
+}
+
+.ctrl-btn:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.ctrl-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.play-btn {
+  width: 64px;
+  height: 64px;
+  padding: 0;
+  font-size: 1.6rem;
+  background: var(--accent-strong);
+}
+
+.play-btn:hover:not(:disabled) {
+  background: var(--accent);
+}
+
+/* 速度切替 */
+.speed-section {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.speed-label {
+  font-size: 0.9rem;
+  color: var(--text-dim);
+}
+
+.speed-buttons {
+  display: flex;
+  gap: 6px;
+}
+
+.speed-btn {
+  background: var(--card-light);
+  color: var(--text);
+  border: 2px solid transparent;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.speed-btn:hover {
+  background: #323b66;
+}
+
+.speed-btn.active {
+  background: var(--accent-strong);
+  border-color: var(--accent);
+}
+
+.pitch-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+/* 音量 */
+.volume-section {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 240px;
+  margin: 0 auto 8px;
+}
+
+/* ヒント */
+.hints {
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  margin-top: 16px;
+}
+
+kbd {
+  background: var(--card-light);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-family: inherit;
+}
+
+@media (max-width: 480px) {
+  .player-card {
+    padding: 20px;
+  }
+}
