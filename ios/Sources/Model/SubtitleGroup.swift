@@ -91,7 +91,13 @@ extension Array where Element == SubtitleCue {
 
     /// 訳とみられる行を目印に区切る。目印が規則的に現れないときは nil を返す。
     private func groupedByTranslation() -> [SubtitleGroup]? {
-        let anchors = indices.filter { self[$0].text.looksLikeTranslation }
+        let marks = indices.filter { self[$0].text.looksLikeTranslation }
+        // 訳が 2 文に分かれて読まれると続けて現れる。間に本文を挟まない訳は
+        // ひとつの区切りとみなす。分けると 1 行だけの項目ができてしまう。
+        var anchors: [Int] = []
+        for (n, i) in marks.enumerated() where n == 0 || marks[n-1] != i - 1 {
+            anchors.append(i)
+        }
         // 全体の 1/6 以上が訳で、かつ先頭が訳でない(前に本文がある)ことを条件にする
         guard anchors.count >= 2, anchors.count * 6 >= count, let first = anchors.first, first > 0
         else { return nil }
