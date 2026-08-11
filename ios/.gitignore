@@ -1,0 +1,12 @@
+# Xcode が生成するユーザー固有ファイル(共有しても意味がないもの)
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+
+# ビルド成果物
+DerivedData/
+build/
+*.ipa
+*.dSYM.zip
+
+.DS_Store

@@ -1,0 +1,59 @@
+name: Music3x
+options:
+  bundleIdPrefix: com.okadamasayuki
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+
+settings:
+  base:
+    # Swift 5 言語モードを明示。Xcode 既定の Swift 6 モードでは
+    # AVPlayer のコールバック周りが厳密並行性チェックに引っかかるため。
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    CODE_SIGN_STYLE: Automatic
+    # 実機で動かすときはここに Apple Developer のチーム ID を入れる。
+    # 空のままでもシミュレータでは動作する。
+    DEVELOPMENT_TEAM: ""
+
+targets:
+  Music3x:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources
+    resources:
+      - path: Resources/Assets.xcassets
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.okadamasayuki.music3x
+        PRODUCT_NAME: Music3x
+        TARGETED_DEVICE_FAMILY: "1,2"
+        ENABLE_USER_SCRIPT_SANDBOXING: YES
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+    info:
+      path: Resources/Info.plist
+      properties:
+        CFBundleDisplayName: 倍速プレイヤー
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        # ロック画面操作とバックグラウンド再生に必須
+        UIBackgroundModes:
+          - audio
+        # 「ファイル」アプリと Finder から音源を直接出し入れできるようにする
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
