@@ -135,6 +135,33 @@ struct PlayerView: View {
     private var skipSeconds: Int { Int(player.skipInterval.rounded()) }
 
     private var transportSection: some View {
+        ZStack {
+            transportButtons
+            HStack {
+                Spacer()
+                translationToggle
+            }
+        }
+    }
+
+    /// 訳の表示を 1 タップで切り替える。設定を開かずに、
+    /// 訳を隠して思い出す・確認のため戻す、を素早く行き来できるようにする。
+    private var translationToggle: some View {
+        Button {
+            settings.showTranslation.toggle()
+        } label: {
+            Image(systemName: settings.showTranslation ? "captions.bubble.fill" : "captions.bubble")
+                .font(.system(size: 22))
+                .foregroundStyle(settings.showTranslation ? Color.accentColor : Color.secondary)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(settings.showTranslation ? "日本語訳を隠す" : "日本語訳を表示")
+        .accessibilityIdentifier("translationToggle")
+    }
+
+    private var transportButtons: some View {
         HStack(spacing: 44) {
             Button {
                 player.skip(-player.skipInterval)
