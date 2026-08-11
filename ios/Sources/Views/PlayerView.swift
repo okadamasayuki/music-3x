@@ -143,15 +143,10 @@ struct PlayerView: View {
     /// 設定を開かずに変えられないと、聞きながらの調整が面倒になるため。
     private var speedLabel: some View {
         Menu {
-            ForEach(AppSettings.speedChoices, id: \.self) { choice in
-                Button {
-                    settings.defaultSpeed = choice
-                } label: {
-                    if abs(settings.defaultSpeed - choice) < 0.001 {
-                        Label(SpeedFormatter.label(for: choice), systemImage: "checkmark")
-                    } else {
-                        Text(SpeedFormatter.label(for: choice))
-                    }
+            // 選択形式にすると、印の欄が確保されず幅が詰まる
+            Picker("再生速度", selection: $settings.defaultSpeed) {
+                ForEach(AppSettings.speedChoices, id: \.self) { choice in
+                    Text(SpeedFormatter.label(for: choice)).tag(choice)
                 }
             }
         } label: {

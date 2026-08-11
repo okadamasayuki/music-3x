@@ -26,14 +26,6 @@ struct SettingsView: View {
             }
 
             Section {
-                Toggle(isOn: $settings.showTranslation) {
-                    Text("日本語訳を表示")
-                }
-            } header: {
-                Text("字幕")
-            }
-
-            Section {
                 Toggle(isOn: $settings.skipLearned) {
                     Text("覚えた項目を飛ばす")
                 }
@@ -47,6 +39,6 @@ struct SettingsView: View {
                      + "「隠す」は字幕の一覧から消して、まだ覚えていない分だけを並べます。")
             }
         }
-        .navigationTitle("設定")
+        .navigationTitle("")
     }
 }

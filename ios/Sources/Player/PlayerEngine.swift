@@ -332,7 +332,15 @@ final class PlayerEngine: ObservableObject {
     @discardableResult
     private func skipLearnedIfNeeded(at time: Double) -> Bool {
         guard skipLearned, !learnedGroups.isEmpty, !groups.isEmpty else { return false }
-        guard let index = groups.group(at: time), learnedGroups.contains(index) else { return false }
+
+        // 位置の確認は一定間隔で行うため、入ってから気づくと、その間の音が
+        // 途切れて鳴ってしまう。少し先を見て、入る前に飛ばす。
+        let lookahead = 0.4
+        let target = groups.group(at: time).map { (index: $0, entered: true) }
+            ?? groups.group(at: time + lookahead).map { (index: $0, entered: false) }
+
+        guard let target, learnedGroups.contains(target.index) else { return false }
+        let index = target.index
 
         if let next = groups.firstUnlearned(after: groups[index].end, learned: learnedGroups) {
             seek(to: next.start)

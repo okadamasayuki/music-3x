@@ -20,14 +20,6 @@ struct TranslationToggle: View {
                               ? Color.accentColor
                               : Color.secondary.opacity(0.18))
                 )
-                .overlay {
-                    if !settings.showTranslation {
-                        Capsule()
-                            .fill(Color.secondary)
-                            .frame(width: 30, height: 1.6)
-                            .rotationEffect(.degrees(-24))
-                    }
-                }
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
