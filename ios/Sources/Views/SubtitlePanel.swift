@@ -19,6 +19,7 @@ struct SubtitlePanel: View {
                     // キューが切り替わるたびに軽くフェードさせる
                     .id(cue.id)
                     .transition(.opacity)
+                    .accessibilityIdentifier("subtitle")
             } else {
                 Text("♪")
                     .font(.system(size: 34))

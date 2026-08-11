@@ -98,8 +98,10 @@ struct PlayerView: View {
 
             HStack {
                 Text(TimeFormatter.string(from: isScrubbing ? scrubValue : player.currentTime))
+                    .accessibilityIdentifier("elapsed")
                 Spacer()
                 Text(TimeFormatter.string(from: player.duration))
+                    .accessibilityIdentifier("duration")
             }
             .font(.caption.monospacedDigit())
             .foregroundStyle(.secondary)
@@ -116,6 +118,7 @@ struct PlayerView: View {
                 Image(systemName: "gobackward.10")
                     .font(.system(size: 32))
             }
+            .accessibilityLabel("10秒戻る")
 
             Button {
                 player.togglePlayPause()
@@ -124,6 +127,7 @@ struct PlayerView: View {
                     .font(.system(size: 68))
             }
             .disabled(!player.isReady)
+            .accessibilityLabel(player.isPlaying ? "一時停止" : "再生")
 
             Button {
                 player.skip(PlayerEngine.skipInterval)
@@ -131,6 +135,7 @@ struct PlayerView: View {
                 Image(systemName: "goforward.10")
                     .font(.system(size: 32))
             }
+            .accessibilityLabel("10秒進む")
         }
         .foregroundStyle(.tint)
     }
