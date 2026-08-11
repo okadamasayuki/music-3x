@@ -3,6 +3,42 @@ import SwiftUI
 struct SettingsView: View {
     @EnvironmentObject private var settings: AppSettings
 
+    /// 無料の開発者アカウントで入れたアプリは 7 日で起動できなくなる。
+    /// いつ入れ直しが要るのか、開かなくても分かるようにしておく。
+    @ViewBuilder
+    private var expirySection: some View {
+        Section {
+            if let date = InstallExpiry.formattedDate, let days = InstallExpiry.daysRemaining {
+                HStack {
+                    Text("使える期限")
+                    Spacer()
+                    Text(date)
+                        .foregroundStyle(.secondary)
+                }
+                HStack {
+                    Text("残り")
+                    Spacer()
+                    Text(days == 0 ? "期限切れ" : "\(days) 日")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(days == 0 ? Color.red
+                                         : days <= 2 ? Color.orange : Color.primary)
+                }
+            } else {
+                HStack {
+                    Text("使える期限")
+                    Spacer()
+                    Text("確認できません")
+                        .foregroundStyle(.secondary)
+                }
+            }
+        } header: {
+            Text("この端末での利用")
+        } footer: {
+            Text("無料の開発者アカウントで入れているため、期限を過ぎると起動できなくなります。"
+                 + "入れ直せばまた使えるようになり、覚えた印や再生位置はそのまま残ります。")
+        }
+    }
+
     var body: some View {
         Form {
             Section {
@@ -38,6 +74,7 @@ struct SettingsView: View {
                 Text("「飛ばす」は再生時に読み飛ばし、その分だけ全体の長さも短く表示します。"
                      + "「隠す」は字幕の一覧から消して、まだ覚えていない分だけを並べます。")
             }
+            expirySection
         }
         .navigationTitle("")
     }
