@@ -29,6 +29,10 @@ final class PlayerEngine: ObservableObject {
     /// 字幕を「教材の 1 項目」単位に束ねたもの。覚えた分を飛ばす単位でもある。
     @Published private(set) var groups: [SubtitleGroup] = []
     @Published private(set) var currentGroupIndex: Int?
+
+    /// 強調しておく項目。字幕と字幕の間や読み直しの合間でも消えないよう、
+    /// 項目から外れている間は直前の項目を保持する。
+    @Published private(set) var highlightedGroupIndex: Int?
     @Published var learnedGroups: Set<Int> = []
     @Published var skipLearned: Bool = true {
         didSet { rebuildSkippedRanges() }
@@ -294,6 +298,7 @@ final class PlayerEngine: ObservableObject {
 
         let g = groups.group(at: time)
         if g != currentGroupIndex { currentGroupIndex = g }
+        if let g, g != highlightedGroupIndex { highlightedGroupIndex = g }
 
         // 行が変わったときだけロック画面を描き替える
         if changed { updateNowPlayingInfo() }

@@ -6,8 +6,10 @@ struct LibraryView: View {
     @EnvironmentObject private var player: PlayerEngine
 
     @State private var isImportingAudio = false
+    @State private var subtitleTarget: Track?
     @State private var renameTarget: Track?
     @State private var renameText = ""
+    @State private var clearLearnedTarget: Track?
     @State private var errorMessage: String?
 
     var body: some View {
@@ -35,6 +37,15 @@ struct LibraryView: View {
         ) { result in
             handleAudioImport(result)
         }
+        .fileImporter(
+            isPresented: Binding(get: { subtitleTarget != nil },
+                                 set: { if !$0 { subtitleTarget = nil } }),
+            // .srt / .vtt は iOS に標準登録された型がないため、テキスト全般を許可する。
+            // ここを狭めるとファイルアプリ上で字幕が選べなくなる。
+            allowedContentTypes: [.plainText, .text, .data]
+        ) { result in
+            handleSubtitleImport(result)
+        }
         .alert("読み込めませんでした", isPresented: showErrorBinding) {
             Button("OK") { errorMessage = nil }
         } message: {
@@ -48,22 +59,29 @@ struct LibraryView: View {
                 renameTarget = nil
             }
         }
+        .alert("覚えた印をすべて消しますか?", isPresented: showClearLearnedBinding) {
+            Button("キャンセル", role: .cancel) { clearLearnedTarget = nil }
+            Button("すべて消す", role: .destructive) {
+                if let target = clearLearnedTarget {
+                    library.clearLearned(for: target.id)
+                    if player.currentTrackID == target.id { player.applyLearned([]) }
+                }
+                clearLearnedTarget = nil
+            }
+        } message: {
+            Text("この音源に付けた印がすべて消えます。元に戻せません。")
+        }
     }
 
-    /// アラートは Optional の中身が有無で開閉するため、閉じられたら値も捨てる。
-    /// .constant で束縛すると閉じる操作が状態に反映されず開きっぱなしになる。
+    /// アラートは Optional の中身の有無で開閉するため、閉じられたら値も捨てる。
     private var showErrorBinding: Binding<Bool> {
-        Binding(
-            get: { errorMessage != nil },
-            set: { if !$0 { errorMessage = nil } }
-        )
+        Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })
     }
-
     private var showRenameBinding: Binding<Bool> {
-        Binding(
-            get: { renameTarget != nil },
-            set: { if !$0 { renameTarget = nil } }
-        )
+        Binding(get: { renameTarget != nil }, set: { if !$0 { renameTarget = nil } })
+    }
+    private var showClearLearnedBinding: Binding<Bool> {
+        Binding(get: { clearLearnedTarget != nil }, set: { if !$0 { clearLearnedTarget = nil } })
     }
 
     // MARK: - 一覧
@@ -74,6 +92,7 @@ struct LibraryView: View {
                 NavigationLink(value: track.id) {
                     row(for: track)
                 }
+                .contextMenu { menu(for: track) }
                 .swipeActions(edge: .trailing) {
                     Button(role: .destructive) {
                         library.remove(track)
@@ -97,6 +116,33 @@ struct LibraryView: View {
         }
     }
 
+    /// 再生画面から帯を無くしたぶん、音源ごとの操作はここに集めている。
+    @ViewBuilder
+    private func menu(for track: Track) -> some View {
+        Button {
+            subtitleTarget = track
+        } label: {
+            Label(track.hasSubtitle ? "字幕を差し替え" : "字幕を追加", systemImage: "captions.bubble")
+        }
+        Button {
+            renameText = track.displayName
+            renameTarget = track
+        } label: {
+            Label("名前を変更", systemImage: "pencil")
+        }
+        Button(role: .destructive) {
+            clearLearnedTarget = track
+        } label: {
+            Label("覚えた印をすべて消す", systemImage: "arrow.counterclockwise")
+        }
+        .disabled(track.learnedGroups.isEmpty)
+        Button(role: .destructive) {
+            library.remove(track)
+        } label: {
+            Label("削除", systemImage: "trash")
+        }
+    }
+
     private func row(for track: Track) -> some View {
         HStack(spacing: 12) {
             Image(systemName: player.currentTrackID == track.id && player.isPlaying
@@ -115,7 +161,8 @@ struct LibraryView: View {
                         Label("字幕あり", systemImage: "captions.bubble")
                     }
                     if track.lastPosition > 5 {
-                        Label(TimeFormatter.string(from: track.lastPosition) + " から", systemImage: "clock.arrow.circlepath")
+                        Label(TimeFormatter.string(from: track.lastPosition) + " から",
+                              systemImage: "clock.arrow.circlepath")
                     }
                 }
                 .font(.caption)
@@ -167,6 +214,24 @@ struct LibraryView: View {
             }
         case .failure(let error):
             errorMessage = error.localizedDescription
+        }
+    }
+
+    private func handleSubtitleImport(_ result: Result<URL, Error>) {
+        guard let target = subtitleTarget else { return }
+        subtitleTarget = nil
+        guard case .success(let url) = result else { return }
+        do {
+            try library.importSubtitle(from: url, for: target.id)
+        } catch {
+            errorMessage = error.localizedDescription
+            return
+        }
+        // 開いている音源なら、その場で字幕を読み直す
+        if player.currentTrackID == target.id,
+           let updated = library.tracks.first(where: { $0.id == target.id }) {
+            player.loadSubtitles(from: library.subtitleURL(for: updated))
+            player.applyLearned(library.learnedGroups(for: target.id, cueCount: player.cues.count))
         }
     }
 

@@ -5,17 +5,38 @@ struct RootView: View {
     @EnvironmentObject private var player: PlayerEngine
     @EnvironmentObject private var settings: AppSettings
 
+    private enum Tab: Hashable { case library, settings }
+
+    @State private var selectedTab: Tab = .library
+    @State private var libraryPath = NavigationPath()
+
+    /// 同じタブをもう一度押したら一覧へ戻す。再生画面から帯を無くしたため、
+    /// これが戻る手段になる(左端スワイプは字幕のスクロールと競合して効かない)。
+    private var tabSelection: Binding<Tab> {
+        Binding(
+            get: { selectedTab },
+            set: { new in
+                if new == .library && selectedTab == .library {
+                    libraryPath = NavigationPath()
+                }
+                selectedTab = new
+            }
+        )
+    }
+
     var body: some View {
-        TabView {
-            NavigationStack {
+        TabView(selection: tabSelection) {
+            NavigationStack(path: $libraryPath) {
                 LibraryView()
             }
             .tabItem { Label("ライブラリ", systemImage: "music.note.list") }
+            .tag(Tab.library)
 
             NavigationStack {
                 SettingsView()
             }
             .tabItem { Label("設定", systemImage: "gearshape") }
+            .tag(Tab.settings)
         }
         .onAppear {
             // 再生位置の保存はライブラリ側の責務なので、ここで橋渡しする

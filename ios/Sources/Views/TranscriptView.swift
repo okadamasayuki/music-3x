@@ -91,9 +91,10 @@ struct TranscriptView: View {
         .frame(maxWidth: .infinity)
     }
 
+    /// 字幕と字幕の間や、同じ英文の読み直しの合間でも強調を切らさない。
+    /// 行ではなく項目を単位に見るので、項目の中にいる限り光ったままになる。
     private func isPlaying(_ group: SubtitleGroup) -> Bool {
-        guard let current = player.currentCueIndex else { return false }
-        return group.range.contains(current)
+        group.id == player.highlightedGroupIndex
     }
 
     private func scroll(_ proxy: ScrollViewProxy, animated: Bool) {
