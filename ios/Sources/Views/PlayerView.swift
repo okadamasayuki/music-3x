@@ -18,7 +18,9 @@ struct PlayerView: View {
     /// 字幕の上を右へなぞると一覧へ戻る。
     /// 縦スクロールと取り合わないよう、横の動きが縦を上回ったときだけ追従する。
     private var backSwipe: some Gesture {
-        DragGesture(minimumDistance: 12)
+        // 画面自身をずらすので、移動量は画面に依存しない基準で測る。
+        // 既定のまま(動く画面が基準)だと、ずらす→測り直すの繰り返しで震える。
+        DragGesture(minimumDistance: 12, coordinateSpace: .global)
             .onChanged { value in
                 let horizontal = value.translation.width
                 let vertical = abs(value.translation.height)
@@ -105,6 +107,12 @@ struct PlayerView: View {
             HStack {
                 Text(TimeFormatter.string(from: displayedTime))
                     .accessibilityIdentifier("elapsed")
+                Spacer()
+                Text(SpeedFormatter.label(for: player.speed))
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.tint)
+                    .accessibilityLabel("再生速度 \(SpeedFormatter.label(for: player.speed))")
+                    .accessibilityIdentifier("speed")
                 Spacer()
                 Text(TimeFormatter.string(from: player.effectiveDuration))
                     .accessibilityIdentifier("duration")

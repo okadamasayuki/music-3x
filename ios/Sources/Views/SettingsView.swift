@@ -26,8 +26,6 @@ struct SettingsView: View {
                 .pickerStyle(.segmented)
             } header: {
                 Text("送り・戻し")
-            } footer: {
-                Text("プレイヤーのボタンと、ロック画面の送り・戻しに反映されます。")
             }
 
             Section {
@@ -36,9 +34,6 @@ struct SettingsView: View {
                 }
             } header: {
                 Text("字幕")
-            } footer: {
-                Text("切ると英文だけが並びます。訳を見ずに意味を思い出す練習に使えます。"
-                     + "音声はそのまま流れます。")
             }
 
             Section {
@@ -53,12 +48,6 @@ struct SettingsView: View {
             } footer: {
                 Text("「飛ばす」は再生時に読み飛ばし、その分だけ全体の長さも短く表示します。"
                      + "「隠す」は字幕の一覧から消して、まだ覚えていない分だけを並べます。")
-            }
-
-            Section {
-                Button("設定を初期状態に戻す", role: .destructive) {
-                    settings.resetToDefaults()
-                }
             }
         }
         .navigationTitle("設定")

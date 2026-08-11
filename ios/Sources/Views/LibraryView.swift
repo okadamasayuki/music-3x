@@ -92,18 +92,7 @@ struct LibraryView: View {
     private var trackList: some View {
         List {
             ForEach(library.tracks) { track in
-                Button {
-                    onOpen(track.id)
-                } label: {
-                    HStack {
-                        row(for: track)
-                        Spacer(minLength: 8)
-                        Image(systemName: "chevron.right")
-                            .font(.footnote.weight(.semibold))
-                            .foregroundStyle(.tertiary)
-                    }
-                }
-                .buttonStyle(.plain)
+                rowButton(for: track)
                 .contextMenu { menu(for: track) }
                 .swipeActions(edge: .trailing) {
                     Button(role: .destructive) {
@@ -121,6 +110,23 @@ struct LibraryView: View {
                 }
             }
         }
+    }
+
+    private func rowButton(for track: Track) -> some View {
+        Button {
+            onOpen(track.id)
+        } label: {
+            HStack(spacing: 8) {
+                row(for: track)
+                Spacer(minLength: 4)
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+            }
+            // 文字の無い余白も押せるようにする。行のどこを触っても開く。
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     /// 再生画面から帯を無くしたぶん、音源ごとの操作はここに集めている。
