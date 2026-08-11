@@ -4,7 +4,7 @@ struct SpeedControlView: View {
     @EnvironmentObject private var player: PlayerEngine
 
     var body: some View {
-        VStack(spacing: 14) {
+        VStack(spacing: 12) {
             HStack {
                 Text("再生速度")
                     .font(.subheadline.weight(.medium))
@@ -28,22 +28,6 @@ struct SpeedControlView: View {
                     .foregroundStyle(.secondary)
             }
             .font(.footnote)
-
-            Toggle(isOn: $player.preservesPitch) {
-                Label("音程を維持", systemImage: "waveform.path")
-                    .font(.subheadline)
-            }
-            .toggleStyle(.switch)
-
-            // 伸ばし方の方式で声の聞こえ方が変わるので、再生しながら比べられるようにする
-            if player.preservesPitch {
-                Picker("音の伸ばし方", selection: $player.stretchMode) {
-                    ForEach(StretchMode.allCases) { mode in
-                        Text(mode.label).tag(mode)
-                    }
-                }
-                .pickerStyle(.segmented)
-            }
         }
     }
 

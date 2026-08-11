@@ -9,7 +9,11 @@ final class PlayerEngine: ObservableObject {
     /// ワンタップで選べる速度。Web 版の 1x/2x/3x/4x に半段刻みを足したもの。
     static let presetSpeeds: [Double] = [1, 1.5, 2, 2.5, 3, 4]
     static let speedRange: ClosedRange<Double> = 0.5...4.0
-    static let skipInterval: Double = 10
+
+    /// 送り・戻し 1 回あたりの秒数。設定から変えられる。
+    @Published var skipInterval: Double = 10 {
+        didSet { updateRemoteSkipIntervals() }
+    }
 
     @Published private(set) var isPlaying = false
     @Published private(set) var currentTime: Double = 0
@@ -25,22 +29,14 @@ final class PlayerEngine: ObservableObject {
     @Published private(set) var groups: [SubtitleGroup] = []
     @Published private(set) var currentGroupIndex: Int?
     @Published var learnedGroups: Set<Int> = []
-    @Published var skipLearned: Bool = true
+    @Published var skipLearned: Bool = true {
+        didSet { rebuildSkippedRanges() }
+    }
 
     @Published var speed: Double = 1.0 {
         didSet { applyRate() }
     }
 
-    @Published var preservesPitch: Bool = true {
-        didSet { applyPitchAlgorithm() }
-    }
-
-    @Published var stretchMode: StretchMode = StretchMode.saved {
-        didSet {
-            stretchMode.save()
-            applyPitchAlgorithm()
-        }
-    }
 
     /// 再生位置が変わるたびに呼ばれる。呼び出し側で保存に使う。
     var onPositionChange: ((UUID, Double) -> Void)?
@@ -120,6 +116,7 @@ final class PlayerEngine: ObservableObject {
         groups = cues.grouped()
         currentCueIndex = cues.cue(at: currentTime)
         currentGroupIndex = groups.group(at: currentTime)
+        rebuildSkippedRanges()
     }
 
     private func observeItemStatus(_ item: AVPlayerItem, startAt: Double) {
@@ -194,11 +191,9 @@ final class PlayerEngine: ObservableObject {
 
     // MARK: - 速度と音程
 
-    private var pitchAlgorithm: AVAudioTimePitchAlgorithm {
-        // 音程を保ったまま速度を変えるアルゴリズムは方式によって聞こえ方が変わる。
-        // オフのときの .varispeed はテープ早回しと同じで音程が上がる。
-        preservesPitch ? stretchMode.algorithm : .varispeed
-    }
+    /// 倍速でも音程を保つ。時間領域方式は子音の輪郭が残り、話し声が聞き取りやすい。
+    /// スペクトル方式は音楽向けで、話し声では反響がかかったようにぼやける。
+    private let pitchAlgorithm: AVAudioTimePitchAlgorithm = .timeDomain
 
     private func applyRate() {
         guard isPlaying else { return }
@@ -324,15 +319,87 @@ final class PlayerEngine: ObservableObject {
         } else {
             learnedGroups.remove(group)
         }
+        rebuildSkippedRanges()
     }
 
     func applyLearned(_ set: Set<Int>) {
         learnedGroups = set
+        rebuildSkippedRanges()
+    }
+
+    // MARK: - 覚えた分を除いた時間
+
+    /// 飛ばす区間。重なりをなくして開始順に並べてある。
+    private var skippedRanges: [(start: Double, end: Double)] = []
+
+    private func rebuildSkippedRanges() {
+        guard skipLearned else {
+            skippedRanges = []
+            skippedDuration = 0
+            return
+        }
+        let sorted = learnedGroups
+            .compactMap { groups.indices.contains($0) ? groups[$0] : nil }
+            .sorted { $0.start < $1.start }
+
+        var merged: [(start: Double, end: Double)] = []
+        for g in sorted {
+            if let last = merged.last, g.start <= last.end {
+                merged[merged.count-1].end = max(last.end, g.end)
+            } else {
+                merged.append((g.start, g.end))
+            }
+        }
+        skippedRanges = merged
+        skippedDuration = merged.reduce(0) { $0 + ($1.end - $1.start) }
+    }
+
+    /// 飛ばす区間の合計。表示の更新に使うので published にしておく。
+    @Published private(set) var skippedDuration: Double = 0
+
+    /// 覚えた分を差し引いた実質の長さ
+    var effectiveDuration: Double {
+        max(0, duration - skippedDuration)
+    }
+
+    /// 実時間を、飛ばす区間を詰めた時間に直す
+    func effectiveTime(for real: Double) -> Double {
+        var shift = 0.0
+        for r in skippedRanges {
+            if r.end <= real {
+                shift += r.end - r.start
+            } else if r.start < real {
+                shift += real - r.start   // 区間の途中にいる場合
+            } else {
+                break
+            }
+        }
+        return max(0, real - shift)
+    }
+
+    /// 詰めた時間を実時間に戻す(シークバー操作用)
+    func realTime(for effective: Double) -> Double {
+        var real = effective
+        for r in skippedRanges {
+            if r.start <= real {
+                real += r.end - r.start
+            } else {
+                break
+            }
+        }
+        return min(real, duration > 0 ? duration : real)
+    }
+
+    /// 操作の対象になる項目。項目と項目の隙間にいるときは、これから流れる項目を指す。
+    /// 再生前(0 秒)は最初の項目のわずかに手前にいるため、これが無いとボタンが死ぬ。
+    var activeGroupIndex: Int? {
+        if let index = currentGroupIndex { return index }
+        return groups.firstIndex { $0.start >= currentTime }
     }
 
     /// 今流れている項目の先頭へ戻す(聞き直し用)。
     func replayCurrentGroup() {
-        guard let index = currentGroupIndex, groups.indices.contains(index) else { return }
+        guard let index = activeGroupIndex, groups.indices.contains(index) else { return }
         seek(to: groups[index].start)
     }
 
@@ -364,15 +431,15 @@ final class PlayerEngine: ObservableObject {
             return .success
         }
 
-        center.skipForwardCommand.preferredIntervals = [NSNumber(value: Self.skipInterval)]
+        updateRemoteSkipIntervals()
         center.skipForwardCommand.addTarget { [weak self] _ in
-            self?.skip(Self.skipInterval)
+            guard let self else { return .commandFailed }
+            self.skip(self.skipInterval)
             return .success
         }
-
-        center.skipBackwardCommand.preferredIntervals = [NSNumber(value: Self.skipInterval)]
         center.skipBackwardCommand.addTarget { [weak self] _ in
-            self?.skip(-Self.skipInterval)
+            guard let self else { return .commandFailed }
+            self.skip(-self.skipInterval)
             return .success
         }
 
@@ -381,6 +448,13 @@ final class PlayerEngine: ObservableObject {
             self?.seek(to: event.positionTime)
             return .success
         }
+    }
+
+    /// ロック画面の送り・戻しに表示される秒数を設定に合わせる。
+    private func updateRemoteSkipIntervals() {
+        let center = MPRemoteCommandCenter.shared()
+        center.skipForwardCommand.preferredIntervals = [NSNumber(value: skipInterval)]
+        center.skipBackwardCommand.preferredIntervals = [NSNumber(value: skipInterval)]
     }
 
     private func updateNowPlayingInfo() {

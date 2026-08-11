@@ -6,6 +6,7 @@ struct PlayerView: View {
 
     @EnvironmentObject private var library: LibraryStore
     @EnvironmentObject private var player: PlayerEngine
+    @EnvironmentObject private var settings: AppSettings
 
     @State private var isImportingSubtitle = false
     @State private var showsTranscript = true
@@ -83,10 +84,6 @@ struct PlayerView: View {
                 .pickerStyle(.inline)
                 .disabled(!player.hasSubtitles)
 
-                Toggle(isOn: $player.skipLearned) {
-                    Label("覚えた項目を飛ばす", systemImage: "forward.end.alt")
-                }
-
                 Divider()
 
                 Button {
@@ -110,34 +107,39 @@ struct PlayerView: View {
 
     // MARK: - シーク
 
+    /// 覚えて飛ばす分を除いた時間軸で表示する。聞く分量と目盛りを一致させるため。
+    private var displayedTime: Double {
+        isScrubbing ? scrubValue : player.effectiveTime(for: player.currentTime)
+    }
+
     private var seekSection: some View {
         VStack(spacing: 4) {
             Slider(
                 value: Binding(
-                    get: { isScrubbing ? scrubValue : player.currentTime },
+                    get: { displayedTime },
                     set: { newValue in
                         scrubValue = newValue
-                        player.previewScrub(to: newValue)
+                        player.previewScrub(to: player.realTime(for: newValue))
                     }
                 ),
-                in: 0...max(player.duration, 0.1)
+                in: 0...max(player.effectiveDuration, 0.1)
             ) { editing in
                 if editing {
                     isScrubbing = true
-                    scrubValue = player.currentTime
+                    scrubValue = player.effectiveTime(for: player.currentTime)
                     player.beginScrubbing()
                 } else {
                     isScrubbing = false
-                    player.endScrubbing(at: scrubValue)
+                    player.endScrubbing(at: player.realTime(for: scrubValue))
                 }
             }
-            .disabled(player.duration <= 0)
+            .disabled(player.effectiveDuration <= 0)
 
             HStack {
-                Text(TimeFormatter.string(from: isScrubbing ? scrubValue : player.currentTime))
+                Text(TimeFormatter.string(from: displayedTime))
                     .accessibilityIdentifier("elapsed")
                 Spacer()
-                Text(TimeFormatter.string(from: player.duration))
+                Text(TimeFormatter.string(from: player.effectiveDuration))
                     .accessibilityIdentifier("duration")
             }
             .font(.caption.monospacedDigit())
@@ -147,15 +149,25 @@ struct PlayerView: View {
 
     // MARK: - 再生コントロール
 
+    /// 設定した秒数に合う記号を選ぶ。用意のない秒数は数字なしの記号にする。
+    private func skipSymbol(forward: Bool) -> String {
+        let base = forward ? "goforward" : "gobackward"
+        let available: Set<Int> = [5, 10, 15, 30, 45, 60, 75, 90]
+        let n = Int(player.skipInterval.rounded())
+        return available.contains(n) ? "\(base).\(n)" : base
+    }
+
+    private var skipSeconds: Int { Int(player.skipInterval.rounded()) }
+
     private var transportSection: some View {
         HStack(spacing: 40) {
             Button {
-                player.skip(-PlayerEngine.skipInterval)
+                player.skip(-player.skipInterval)
             } label: {
-                Image(systemName: "gobackward.10")
+                Image(systemName: skipSymbol(forward: false))
                     .font(.system(size: 30))
             }
-            .accessibilityLabel("10秒戻る")
+            .accessibilityLabel("\(skipSeconds)秒戻る")
 
             Button {
                 player.togglePlayPause()
@@ -167,12 +179,12 @@ struct PlayerView: View {
             .accessibilityLabel(player.isPlaying ? "一時停止" : "再生")
 
             Button {
-                player.skip(PlayerEngine.skipInterval)
+                player.skip(player.skipInterval)
             } label: {
-                Image(systemName: "goforward.10")
+                Image(systemName: skipSymbol(forward: true))
                     .font(.system(size: 30))
             }
-            .accessibilityLabel("10秒進む")
+            .accessibilityLabel("\(skipSeconds)秒進む")
         }
         .foregroundStyle(.tint)
     }
@@ -194,10 +206,10 @@ struct PlayerView: View {
                             .fill(Color.secondary.opacity(0.15)))
                 }
                 .buttonStyle(.plain)
-                .disabled(player.currentGroupIndex == nil)
+                .disabled(player.activeGroupIndex == nil)
 
                 Button {
-                    guard let index = player.currentGroupIndex else { return }
+                    guard let index = player.activeGroupIndex else { return }
                     setLearned(index, !player.learnedGroups.contains(index))
                 } label: {
                     Label(isCurrentLearned ? "覚えた印を外す" : "この項目は覚えた",
@@ -210,23 +222,16 @@ struct PlayerView: View {
                         .foregroundStyle(isCurrentLearned ? Color.white : Color.primary)
                 }
                 .buttonStyle(.plain)
-                .disabled(player.currentGroupIndex == nil)
+                .disabled(player.activeGroupIndex == nil)
                 // 一覧側の丸印と同じ読み上げにならないよう、再生中の項目だと分かる言い方にする
                 .accessibilityLabel(isCurrentLearned ? "再生中の項目の覚えた印を外す" : "再生中の項目を覚えた")
                 .accessibilityIdentifier("markCurrentLearned")
-            }
-
-            if !player.learnedGroups.isEmpty {
-                Text("\(player.learnedGroups.count) / \(player.groups.count) 項目を習得済み"
-                     + (player.skipLearned ? "(再生時に飛ばします)" : ""))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
         }
     }
 
     private var isCurrentLearned: Bool {
-        guard let index = player.currentGroupIndex else { return false }
+        guard let index = player.activeGroupIndex else { return false }
         return player.learnedGroups.contains(index)
     }
 
@@ -248,6 +253,7 @@ struct PlayerView: View {
             startAt: current.lastPosition
         )
         player.applyLearned(library.learnedGroups(for: current.id, cueCount: player.cues.count))
+        player.speed = settings.defaultSpeed
     }
 
     private func handleSubtitleImport(_ result: Result<URL, Error>) {
