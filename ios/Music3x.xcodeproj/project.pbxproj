@@ -17,6 +17,7 @@
 		4FB1D9BC62C1F7DA505A4EB5 /* Music3xApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDB3694C9A822AF1D88D82E7 /* Music3xApp.swift */; };
 		5B438BC6E095BF1BB584BD11 /* TranscriptView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0A7C444C20CC4B321572CDB /* TranscriptView.swift */; };
 		61C8EDA42C2FD21A1646DAD2 /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39C3FDEDD3F977E94B7812C6 /* AppSettings.swift */; };
+		6907FA5C8A156256F1866130 /* SpeedPresetRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 651095C6AB565A4B8B7197D3 /* SpeedPresetRow.swift */; };
 		759B1DF474550BEEF9D696E8 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1D50B8DFB7B6FAA98557EC5 /* SettingsView.swift */; };
 		892508D7328267F6238A1304 /* SubtitleCue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73F58DD76510EE6C78FBF440 /* SubtitleCue.swift */; };
 		97D8A32E3A1E1D57AD0BE32E /* TimeFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBC1A8CEAF637D2338BC6374 /* TimeFormatter.swift */; };
@@ -33,6 +34,7 @@
 		39C3FDEDD3F977E94B7812C6 /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
 		4C7CDE600E2A0BEAC51F805C /* Music3x.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Music3x.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		4FF5423FEBB1CAC5972EFD64 /* Track.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Track.swift; sourceTree = "<group>"; };
+		651095C6AB565A4B8B7197D3 /* SpeedPresetRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeedPresetRow.swift; sourceTree = "<group>"; };
 		73F58DD76510EE6C78FBF440 /* SubtitleCue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubtitleCue.swift; sourceTree = "<group>"; };
 		8E4F269A9F70B5935E1FD9A2 /* SubtitleGroup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubtitleGroup.swift; sourceTree = "<group>"; };
 		B0A7C444C20CC4B321572CDB /* TranscriptView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptView.swift; sourceTree = "<group>"; };
@@ -113,6 +115,7 @@
 				F1A3A59C2686651B2E59D97D /* RootView.swift */,
 				F1D50B8DFB7B6FAA98557EC5 /* SettingsView.swift */,
 				F3DA7FCE59C5DBBA265EDC53 /* SpeedControlView.swift */,
+				651095C6AB565A4B8B7197D3 /* SpeedPresetRow.swift */,
 				CC05B28C89A31B0E42A89FF5 /* SubtitlePanel.swift */,
 				EBC1A8CEAF637D2338BC6374 /* TimeFormatter.swift */,
 				B0A7C444C20CC4B321572CDB /* TranscriptView.swift */,
@@ -201,6 +204,7 @@
 				E2C1D8C721EFF7D2C5F3C1D5 /* RootView.swift in Sources */,
 				759B1DF474550BEEF9D696E8 /* SettingsView.swift in Sources */,
 				14E1D36A74BDCE6861B7C1ED /* SpeedControlView.swift in Sources */,
+				6907FA5C8A156256F1866130 /* SpeedPresetRow.swift in Sources */,
 				892508D7328267F6238A1304 /* SubtitleCue.swift in Sources */,
 				3B8560EF64AE76541364162B /* SubtitleGroup.swift in Sources */,
 				0EDA4A490384D3860D828431 /* SubtitlePanel.swift in Sources */,

@@ -6,17 +6,10 @@ struct SettingsView: View {
     var body: some View {
         Form {
             Section {
-                Picker("再生速度", selection: $settings.defaultSpeed) {
-                    ForEach(AppSettings.speedChoices, id: \.self) { speed in
-                        Text(SpeedControlView.label(for: speed)).tag(speed)
-                    }
-                }
-                HStack(spacing: 10) {
-                    Image(systemName: "tortoise").foregroundStyle(.secondary)
-                    Slider(value: $settings.defaultSpeed, in: AppSettings.speedRange, step: 0.05)
-                    Image(systemName: "hare").foregroundStyle(.secondary)
-                }
-                .font(.footnote)
+                // プレイヤー画面と同じボタンとスライダーを使う
+                SpeedPresetRow(selection: $settings.defaultSpeed)
+                    .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 6, trailing: 16))
+                SpeedFineSlider(value: $settings.defaultSpeed)
             } header: {
                 Text("既定の再生速度")
             } footer: {

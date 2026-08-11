@@ -14,42 +14,8 @@ struct SpeedControlView: View {
                     .foregroundStyle(.tint)
             }
 
-            presetRow
-
-            HStack(spacing: 10) {
-                Image(systemName: "tortoise")
-                    .foregroundStyle(.secondary)
-                Slider(
-                    value: $player.speed,
-                    in: PlayerEngine.speedRange,
-                    step: 0.05
-                )
-                Image(systemName: "hare")
-                    .foregroundStyle(.secondary)
-            }
-            .font(.footnote)
-        }
-    }
-
-    private var presetRow: some View {
-        HStack(spacing: 8) {
-            ForEach(PlayerEngine.presetSpeeds, id: \.self) { speed in
-                let isActive = abs(player.speed - speed) < 0.001
-                Button {
-                    player.speed = speed
-                } label: {
-                    Text(Self.label(for: speed))
-                        .font(.subheadline.weight(.semibold))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 9)
-                        .background(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .fill(isActive ? Color.accentColor : Color.secondary.opacity(0.15))
-                        )
-                        .foregroundStyle(isActive ? Color.white : Color.primary)
-                }
-                .buttonStyle(.plain)
-            }
+            SpeedPresetRow(selection: $player.speed)
+            SpeedFineSlider(value: $player.speed)
         }
     }
 
