@@ -498,12 +498,8 @@ final class PlayerEngine: ObservableObject {
         if duration > 0 {
             info[MPMediaItemPropertyPlaybackDuration] = duration
         }
-        // 文字欄にも今の項目の英文を出す。絵と同じ単位にしないと、
-        // 絵は次の項目を指しているのに文字は前のまま、という食い違いが起きる。
-        if let index = highlightedGroupIndex, groups.indices.contains(index),
-           let headline = groups[index].lines(in: cues).first {
-            info[MPMediaItemPropertyArtist] = headline.text.replacingOccurrences(of: "\n", with: " ")
-        }
+        // 曲名の下の文字欄は使わない。すぐ上の絵に同じ英文が出ており、
+        // 二重に並ぶだけで場所を取るため。
         if let artwork = lockScreenArtwork() {
             info[MPMediaItemPropertyArtwork] = artwork
         }
