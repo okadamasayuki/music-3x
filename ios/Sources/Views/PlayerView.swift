@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct PlayerView: View {
     let track: Track
@@ -10,6 +11,8 @@ struct PlayerView: View {
 
     @State private var scrubValue: Double = 0
     @State private var isScrubbing = false
+    /// 戻るスワイプの進み具合。指に追従させて動かす。
+    @State private var backDrag: CGFloat = 0
 
     /// ライブラリ側が更新される(字幕を後から足す等)ので、常に最新を引き直す。
     private var liveTrack: Track {
@@ -30,21 +33,40 @@ struct PlayerView: View {
             .padding(.bottom, 20)
             .background(.bar)
         }
+        // 指の動きに合わせて画面ごと横へずらす。標準の戻る操作と同じ手触りにする。
+        .offset(x: backDrag)
+        .shadow(color: .black.opacity(backDrag > 0 ? 0.25 : 0), radius: 12, x: -6, y: 0)
         // 字幕を少しでも広く使うため、画面上部の帯は出さない。
         .toolbar(.hidden, for: .navigationBar)
         // 帯を消すと iOS 標準の戻るスワイプも無効になるため、自前で受け取る。
-        // 縦スクロールを邪魔しないよう、横に大きく振れたときだけ戻す。
+        // 縦スクロールを邪魔しないよう、横向きに振れたときだけ動かす。
         .simultaneousGesture(
-            DragGesture(minimumDistance: 24)
+            DragGesture(minimumDistance: 18)
+                .onChanged { value in
+                    let horizontal = value.translation.width
+                    guard horizontal > 0, abs(value.translation.height) < horizontal else { return }
+                    // 引くほど重くして、行き過ぎないようにする
+                    backDrag = horizontal < 120 ? horizontal : 120 + (horizontal - 120) * 0.55
+                }
                 .onEnded { value in
                     let horizontal = value.translation.width
-                    let vertical = abs(value.translation.height)
-                    if horizontal > 80, vertical < horizontal * 0.7 {
-                        dismiss()
+                    let enough = horizontal > 80 || value.predictedEndTranslation.width > 220
+                    if enough, abs(value.translation.height) < horizontal * 0.9 {
+                        withAnimation(.easeOut(duration: 0.2)) {
+                            backDrag = UIScreen.main.bounds.width
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) { dismiss() }
+                    } else {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+                            backDrag = 0
+                        }
                     }
                 }
         )
-        .onAppear(perform: loadIfNeeded)
+        .onAppear {
+            backDrag = 0
+            loadIfNeeded()
+        }
     }
 
     // MARK: - シーク
