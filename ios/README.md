@@ -51,6 +51,9 @@ xcodegen generate
 Finder で iPhone を繋いで **ファイル → Music3x** に直接ドラッグしても入ります
 (`UIFileSharingEnabled` を有効にしてあります)。
 
+直接置かれたファイルは、アプリを起動したときと前面に戻したときに自動で拾われ、
+一覧に追加されます。`library.json` を手で書く必要はありません。
+
 字幕は SRT / WebVTT に対応しています。音源と同じ名前の字幕ファイル
 (例: `lesson01.mp3` と `lesson01.srt`)を入れておくと、取り込み時に自動で紐付きます。
 

@@ -24,6 +24,11 @@ final class LibraryStore: ObservableObject {
         load()
     }
 
+    /// 前面に戻ったときなど、アプリの外でファイルが増えている可能性がある場面で呼ぶ。
+    func refresh() {
+        load()
+    }
+
     // MARK: - 参照
 
     func audioURL(for track: Track) -> URL {
@@ -125,15 +130,46 @@ final class LibraryStore: ObservableObject {
     // MARK: - 永続化
 
     private func load() {
-        guard let data = try? Data(contentsOf: indexURL),
-              let decoded = try? JSONDecoder().decode([Track].self, from: data)
-        else { return }
-
-        // 実体が消えているエントリ(ファイルアプリで直接削除された等)は落とす
-        tracks = decoded.filter {
-            FileManager.default.fileExists(atPath: mediaDirectory.appendingPathComponent($0.audioFileName).path)
+        if let data = try? Data(contentsOf: indexURL),
+           let decoded = try? JSONDecoder().decode([Track].self, from: data) {
+            // 実体が消えているエントリ(ファイルアプリで直接削除された等)は落とす
+            tracks = decoded.filter {
+                FileManager.default.fileExists(atPath: mediaDirectory.appendingPathComponent($0.audioFileName).path)
+            }
         }
+        discoverUnindexedFiles()
     }
+
+    /// Finder や「ファイル」アプリから Media へ直接置かれた音源を拾って一覧に加える。
+    /// アプリの取り込み画面を通さずにファイルを入れても使えるようにするため。
+    private func discoverUnindexedFiles() {
+        let known = Set(tracks.map(\.audioFileName))
+        guard let names = try? FileManager.default.contentsOfDirectory(atPath: mediaDirectory.path) else { return }
+
+        let discovered = names
+            .filter { Self.audioExtensions.contains(($0 as NSString).pathExtension.lowercased()) }
+            .filter { !known.contains($0) }
+            .sorted()
+
+        guard !discovered.isEmpty else { return }
+
+        for name in discovered {
+            let base = (name as NSString).deletingPathExtension
+            tracks.insert(
+                Track(
+                    audioFileName: name,
+                    subtitleFileName: existingSubtitleFileName(matching: base),
+                    displayName: base
+                ),
+                at: 0
+            )
+        }
+        save()
+    }
+
+    private static let audioExtensions: Set<String> = [
+        "mp3", "m4a", "m4b", "aac", "wav", "aif", "aiff", "caf", "flac", "mp4", "mov",
+    ]
 
     private func save() {
         guard let data = try? JSONEncoder().encode(tracks) else { return }
