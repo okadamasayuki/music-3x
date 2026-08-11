@@ -1,0 +1,4 @@
+# Claude Code のセッション用ファイル(共有しても意味がない)
+.claude/
+
+.DS_Store
