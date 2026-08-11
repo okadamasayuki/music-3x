@@ -78,11 +78,40 @@ extension TranscriptLine {
 }
 
 extension Array where Element == SubtitleCue {
-    /// 一定以上の無音で区切って項目にまとめる。
-    /// 字幕を作ったときと同じ考え方なので、生成物と食い違わない。
+    /// 字幕を項目にまとめる。
+    ///
+    /// 語学教材のように「英文 → 訳 → 英文…」と訳が一定間隔で挟まる字幕では、
+    /// 訳の行を目印にして区切る。無音の長さで区切ると、読み直しの前に間が空いた
+    /// 項目が分断され、そこから先の区切りが丸ごとずれてしまうため。
+    /// 訳が見当たらない普通の字幕では、従来どおり無音の長さで区切る。
     func grouped(gap: Double = 0.8) -> [SubtitleGroup] {
         guard !isEmpty else { return [] }
+        return groupedByTranslation() ?? groupedBySilence(gap: gap)
+    }
 
+    /// 訳とみられる行を目印に区切る。目印が規則的に現れないときは nil を返す。
+    private func groupedByTranslation() -> [SubtitleGroup]? {
+        let anchors = indices.filter { self[$0].text.looksLikeTranslation }
+        // 全体の 1/6 以上が訳で、かつ先頭が訳でない(前に本文がある)ことを条件にする
+        guard anchors.count >= 2, anchors.count * 6 >= count, let first = anchors.first, first > 0
+        else { return nil }
+
+        var groups: [SubtitleGroup] = []
+        for (n, anchor) in anchors.enumerated() {
+            let start = anchor - 1
+            let end = n + 1 < anchors.count ? anchors[n+1] - 1 : count
+            guard start >= 0, end > start else { continue }
+            groups.append(SubtitleGroup(
+                id: groups.count,
+                range: start..<end,
+                start: self[start].start,
+                end: self[end-1].end
+            ))
+        }
+        return groups.isEmpty ? nil : groups
+    }
+
+    private func groupedBySilence(gap: Double) -> [SubtitleGroup] {
         var groups: [SubtitleGroup] = []
         var startIndex = 0
 
@@ -104,6 +133,22 @@ extension Array where Element == SubtitleCue {
             end: self[count-1].end
         ))
         return groups
+    }
+}
+
+private extension String {
+    /// かな・漢字が主体なら訳の行とみなす。
+    var looksLikeTranslation: Bool {
+        var japanese = 0
+        var latin = 0
+        for ch in unicodeScalars {
+            if (0x3040...0x30FF).contains(ch.value) || (0x4E00...0x9FFF).contains(ch.value) {
+                japanese += 1
+            } else if (0x41...0x5A).contains(ch.value) || (0x61...0x7A).contains(ch.value) {
+                latin += 1
+            }
+        }
+        return japanese > 0 && japanese >= latin
     }
 }
 
