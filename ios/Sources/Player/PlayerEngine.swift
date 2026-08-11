@@ -244,7 +244,9 @@ final class PlayerEngine: ObservableObject {
 
     private func observePlayer() {
         timeObserver = player.addPeriodicTimeObserver(
-            forInterval: CMTime(seconds: 0.1, preferredTimescale: 600),
+            // 音声上の時間で刻むため、倍速時は実時間ではこれより短い間隔で発火する。
+            // 0.1 秒にすると 3 倍速で毎秒 30 回になり、処理が追いつかず表示が遅れる。
+            forInterval: CMTime(seconds: 0.25, preferredTimescale: 600),
             queue: .main
         ) { [weak self] time in
             guard let self, !self.isScrubbing else { return }
@@ -314,10 +316,13 @@ final class PlayerEngine: ObservableObject {
 
         let g = groups.group(at: time)
         if g != currentGroupIndex { currentGroupIndex = g }
-        if let g, g != highlightedGroupIndex { highlightedGroupIndex = g }
 
-        // 行が変わったときだけロック画面を描き替える
-        if changed { updateNowPlayingInfo() }
+        // ロック画面は項目ごとの絵なので、項目が変わったときだけ描き替える。
+        // 行ごとに更新すると回数が 4 倍になり、iOS 側で間引かれて古い絵が残る。
+        if let g, g != highlightedGroupIndex {
+            highlightedGroupIndex = g
+            updateNowPlayingInfo()
+        }
     }
 
     // MARK: - 覚えた項目を飛ばす
@@ -493,9 +498,11 @@ final class PlayerEngine: ObservableObject {
         if duration > 0 {
             info[MPMediaItemPropertyPlaybackDuration] = duration
         }
-        if let cue = currentCue {
-            // ロック画面のアーティスト欄に字幕を出す。画面を見ずに聞くときの手がかりになる。
-            info[MPMediaItemPropertyArtist] = cue.text.replacingOccurrences(of: "\n", with: " ")
+        // 文字欄にも今の項目の英文を出す。絵と同じ単位にしないと、
+        // 絵は次の項目を指しているのに文字は前のまま、という食い違いが起きる。
+        if let index = highlightedGroupIndex, groups.indices.contains(index),
+           let headline = groups[index].lines(in: cues).first {
+            info[MPMediaItemPropertyArtist] = headline.text.replacingOccurrences(of: "\n", with: " ")
         }
         if let artwork = lockScreenArtwork() {
             info[MPMediaItemPropertyArtwork] = artwork

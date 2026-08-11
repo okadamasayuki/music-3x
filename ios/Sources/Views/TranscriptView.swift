@@ -153,6 +153,9 @@ private struct GroupBlock: View {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(isPlaying ? Color.accentColor.opacity(0.12) : Color.clear)
         )
+        // 再生中の項目を外から特定できるようにしておく(表示と音声のずれを検査するため)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier(isPlaying ? "currentGroup" : "group")
     }
 }
 
