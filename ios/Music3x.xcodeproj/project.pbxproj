@@ -19,12 +19,14 @@
 		892508D7328267F6238A1304 /* SubtitleCue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73F58DD76510EE6C78FBF440 /* SubtitleCue.swift */; };
 		97D8A32E3A1E1D57AD0BE32E /* TimeFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBC1A8CEAF637D2338BC6374 /* TimeFormatter.swift */; };
 		C176B9C7F4B6313D08134B86 /* CueListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3D652ECB1E12DA1EF13B226 /* CueListView.swift */; };
+		D9D4D8B2D8DAAEBACFA86252 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 02D2EB317F865EDD722D8F13 /* Assets.xcassets */; };
 		E2C1D8C721EFF7D2C5F3C1D5 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A3A59C2686651B2E59D97D /* RootView.swift */; };
 		F1B100560829161A29151B3F /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 238C0192E608DC061F6D8E2A /* LibraryView.swift */; };
 		FCC090AEB7C98802FA274D63 /* StretchMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3706CABC41BD0F49687CB6E /* StretchMode.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		02D2EB317F865EDD722D8F13 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		238C0192E608DC061F6D8E2A /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
 		32FA4B29DC94F1E03CBF1752 /* PlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerView.swift; sourceTree = "<group>"; };
 		4C7CDE600E2A0BEAC51F805C /* Music3x.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Music3x.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -47,6 +49,7 @@
 		1AB8412520D20E262A99D666 = {
 			isa = PBXGroup;
 			children = (
+				97C97E56C35B02D39B4FB68E /* Resources */,
 				C4AC90DDE8916875595328B4 /* Sources */,
 				5036EC97F0509296CA973485 /* Products */,
 			);
@@ -58,6 +61,14 @@
 				4C7CDE600E2A0BEAC51F805C /* Music3x.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		97C97E56C35B02D39B4FB68E /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				02D2EB317F865EDD722D8F13 /* Assets.xcassets */,
+			);
+			path = Resources;
 			sourceTree = "<group>";
 		};
 		A483A151C75AC843ED60BB1F /* Player */ = {
@@ -114,6 +125,7 @@
 			buildConfigurationList = 4CE45E75C4067E4626925BD3 /* Build configuration list for PBXNativeTarget "Music3x" */;
 			buildPhases = (
 				5E70509D5CBCD0AD306B0793 /* Sources */,
+				C00D5D5AE4381ACA5DE2C405 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -159,6 +171,17 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		C00D5D5AE4381ACA5DE2C405 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D9D4D8B2D8DAAEBACFA86252 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		5E70509D5CBCD0AD306B0793 /* Sources */ = {

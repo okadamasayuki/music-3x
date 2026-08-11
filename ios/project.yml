@@ -23,8 +23,9 @@ targets:
     type: application
     platform: iOS
     sources:
+      # アセットカタログもここに並べる。resources: という項目は
+      # XcodeGen には無く、書いても黙って無視されるため使わない。
       - path: Sources
-    resources:
       - path: Resources/Assets.xcassets
     settings:
       base:
