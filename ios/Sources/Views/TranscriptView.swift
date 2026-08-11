@@ -17,10 +17,14 @@ struct TranscriptView: View {
                     ForEach(player.groups) { group in
                         GroupBlock(
                             group: group,
-                            cues: cues(of: group),
+                            lines: group.lines(in: player.cues),
                             currentCueIndex: player.currentCueIndex,
                             isLearned: player.learnedGroups.contains(group.id),
-                            onTapCue: { player.seek(to: $0.start) },
+                            onTapLine: { line in
+                                guard let first = line.cueIndices.first,
+                                      player.cues.indices.contains(first) else { return }
+                                player.seek(to: player.cues[first].start)
+                            },
                             onToggleLearned: { onToggleLearned(group.id, !player.learnedGroups.contains(group.id)) }
                         )
                         .id(group.id)
@@ -55,12 +59,6 @@ struct TranscriptView: View {
         }
     }
 
-    private func cues(of group: SubtitleGroup) -> [(index: Int, cue: SubtitleCue)] {
-        group.range.compactMap { i in
-            player.cues.indices.contains(i) ? (i, player.cues[i]) : nil
-        }
-    }
-
     private func scroll(_ proxy: ScrollViewProxy, animated: Bool) {
         guard let index = player.currentGroupIndex else { return }
         if animated {
@@ -74,10 +72,11 @@ struct TranscriptView: View {
 /// 教材の 1 項目分。数行の字幕と「覚えた」印をひとまとまりで扱う。
 private struct GroupBlock: View {
     let group: SubtitleGroup
-    let cues: [(index: Int, cue: SubtitleCue)]
+    /// 同じ文の読み直しはまとめてあるので、1 項目でも数行しか出ない
+    let lines: [TranscriptLine]
     let currentCueIndex: Int?
     let isLearned: Bool
-    let onTapCue: (SubtitleCue) -> Void
+    let onTapLine: (TranscriptLine) -> Void
     let onToggleLearned: () -> Void
 
     private var isCurrent: Bool {
@@ -99,11 +98,12 @@ private struct GroupBlock: View {
                 : "\(group.id + 1) 番目の項目を覚えた")
 
             VStack(alignment: .leading, spacing: 3) {
-                ForEach(cues, id: \.index) { pair in
+                ForEach(lines) { line in
                     CueRow(
-                        text: pair.cue.text,
-                        isCurrent: pair.index == currentCueIndex,
-                        onTap: { onTapCue(pair.cue) }
+                        text: line.text,
+                        // 読み直しの何回目が流れていても、その行を強調したままにする
+                        isCurrent: currentCueIndex.map { line.cueIndices.contains($0) } ?? false,
+                        onTap: { onTapLine(line) }
                     )
                 }
             }
