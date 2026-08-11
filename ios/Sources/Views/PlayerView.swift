@@ -6,6 +6,7 @@ struct PlayerView: View {
     @EnvironmentObject private var library: LibraryStore
     @EnvironmentObject private var player: PlayerEngine
     @EnvironmentObject private var settings: AppSettings
+    @Environment(\.dismiss) private var dismiss
 
     @State private var scrubValue: Double = 0
     @State private var isScrubbing = false
@@ -30,8 +31,19 @@ struct PlayerView: View {
             .background(.bar)
         }
         // 字幕を少しでも広く使うため、画面上部の帯は出さない。
-        // 左端からのスワイプで一覧へ戻れる。
         .toolbar(.hidden, for: .navigationBar)
+        // 帯を消すと iOS 標準の戻るスワイプも無効になるため、自前で受け取る。
+        // 縦スクロールを邪魔しないよう、横に大きく振れたときだけ戻す。
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 24)
+                .onEnded { value in
+                    let horizontal = value.translation.width
+                    let vertical = abs(value.translation.height)
+                    if horizontal > 80, vertical < horizontal * 0.7 {
+                        dismiss()
+                    }
+                }
+        )
         .onAppear(perform: loadIfNeeded)
     }
 
