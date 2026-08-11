@@ -139,18 +139,36 @@ struct PlayerView: View {
         }
     }
 
-    /// 今の再生速度。操作は設定側にあるので、ここでは表示だけ。
+    /// 今の再生速度。押すとその場で選び直せる。
+    /// 設定を開かずに変えられないと、聞きながらの調整が面倒になるため。
     private var speedLabel: some View {
-        Text(SpeedFormatter.label(for: player.speed))
-            .font(.system(size: 17, weight: .semibold))
-            .foregroundStyle(.tint)
-            .frame(minWidth: 40, minHeight: 32)
-            .accessibilityLabel("再生速度 \(SpeedFormatter.label(for: player.speed))")
-            .accessibilityIdentifier("speed")
+        Menu {
+            ForEach(AppSettings.speedChoices, id: \.self) { choice in
+                Button {
+                    settings.defaultSpeed = choice
+                } label: {
+                    if abs(settings.defaultSpeed - choice) < 0.001 {
+                        Label(SpeedFormatter.label(for: choice), systemImage: "checkmark")
+                    } else {
+                        Text(SpeedFormatter.label(for: choice))
+                    }
+                }
+            }
+        } label: {
+            Text(SpeedFormatter.label(for: player.speed))
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(.tint)
+                .frame(minWidth: 44, minHeight: 32)
+                .contentShape(Rectangle())
+        }
+        .accessibilityLabel("再生速度 \(SpeedFormatter.label(for: player.speed))")
+        .accessibilityHint("押すと速度を選べます")
+        .accessibilityIdentifier("speed")
     }
 
     private var transportButtons: some View {
-        HStack(spacing: 44) {
+        // 送り戻しは再生ボタンのすぐ脇に置く。離れていると持ち替えが要る。
+        HStack(spacing: 22) {
             Button {
                 player.skip(-player.skipInterval)
             } label: {

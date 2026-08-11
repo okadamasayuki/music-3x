@@ -40,16 +40,12 @@ struct SpeedPresetRow: View {
     }
 }
 
-/// 速度の微調整スライダー。こちらも両方の画面で同じものを使う。
+/// 速度の微調整スライダー。ボタンの刻みに無い値を選ぶときに使う。
 struct SpeedFineSlider: View {
     @Binding var value: Double
 
     var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "tortoise").foregroundStyle(.secondary)
-            Slider(value: $value, in: PlayerEngine.speedRange, step: 0.05)
-            Image(systemName: "hare").foregroundStyle(.secondary)
-        }
-        .font(.footnote)
+        Slider(value: $value, in: PlayerEngine.speedRange, step: 0.05)
+            .accessibilityLabel("再生速度の微調整")
     }
 }
