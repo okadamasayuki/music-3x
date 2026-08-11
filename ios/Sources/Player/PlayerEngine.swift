@@ -21,6 +21,12 @@ final class PlayerEngine: ObservableObject {
     @Published private(set) var cues: [SubtitleCue] = []
     @Published private(set) var currentCueIndex: Int?
 
+    /// 字幕を「教材の 1 項目」単位に束ねたもの。覚えた分を飛ばす単位でもある。
+    @Published private(set) var groups: [SubtitleGroup] = []
+    @Published private(set) var currentGroupIndex: Int?
+    @Published var learnedGroups: Set<Int> = []
+    @Published var skipLearned: Bool = true
+
     @Published var speed: Double = 1.0 {
         didSet { applyRate() }
     }
@@ -101,7 +107,9 @@ final class PlayerEngine: ObservableObject {
     func loadSubtitles(from url: URL?) {
         guard let url else {
             cues = []
+            groups = []
             currentCueIndex = nil
+            currentGroupIndex = nil
             return
         }
         // 字幕ファイルの文字コードは UTF-8 とは限らないため、失敗したら Shift_JIS を試す
@@ -109,7 +117,9 @@ final class PlayerEngine: ObservableObject {
             ?? (try? String(contentsOf: url, encoding: .shiftJIS))
             ?? ""
         cues = SubtitleParser.parse(content)
+        groups = cues.grouped()
         currentCueIndex = cues.cue(at: currentTime)
+        currentGroupIndex = groups.group(at: currentTime)
     }
 
     private func observeItemStatus(_ item: AVPlayerItem, startAt: Double) {
@@ -225,6 +235,7 @@ final class PlayerEngine: ObservableObject {
             let seconds = time.seconds
             guard seconds.isFinite else { return }
             self.currentTime = seconds
+            if self.skipLearnedIfNeeded(at: seconds) { return }
             self.updateCue(at: seconds)
             self.persistPosition()
         }
@@ -283,6 +294,51 @@ final class PlayerEngine: ObservableObject {
         }
         let found = cues.cue(at: time)
         if found != currentCueIndex { currentCueIndex = found }
+
+        let g = groups.group(at: time)
+        if g != currentGroupIndex { currentGroupIndex = g }
+    }
+
+    // MARK: - 覚えた項目を飛ばす
+
+    /// 覚えた印の付いた項目に入ったら、次の未習項目まで送る。
+    /// 送った場合は true を返し、この回の更新処理を打ち切る。
+    @discardableResult
+    private func skipLearnedIfNeeded(at time: Double) -> Bool {
+        guard skipLearned, !learnedGroups.isEmpty, !groups.isEmpty else { return false }
+        guard let index = groups.group(at: time), learnedGroups.contains(index) else { return false }
+
+        if let next = groups.firstUnlearned(after: groups[index].end, learned: learnedGroups) {
+            seek(to: next.start)
+        } else {
+            // この先すべて覚えている場合は最後まで送って停止する
+            pause()
+            seek(to: duration > 0 ? duration : time)
+        }
+        return true
+    }
+
+    func setLearned(_ learned: Bool, group: Int) {
+        if learned {
+            learnedGroups.insert(group)
+        } else {
+            learnedGroups.remove(group)
+        }
+    }
+
+    func applyLearned(_ set: Set<Int>) {
+        learnedGroups = set
+    }
+
+    /// 今流れている項目の先頭へ戻す(聞き直し用)。
+    func replayCurrentGroup() {
+        guard let index = currentGroupIndex, groups.indices.contains(index) else { return }
+        seek(to: groups[index].start)
+    }
+
+    func jumpToGroup(_ index: Int) {
+        guard groups.indices.contains(index) else { return }
+        seek(to: groups[index].start)
     }
 
     private func persistPosition() {

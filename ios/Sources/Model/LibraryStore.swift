@@ -85,6 +85,36 @@ final class LibraryStore: ObservableObject {
         save()
     }
 
+    // MARK: - 覚えた項目
+
+    func setLearned(_ learned: Bool, group: Int, cueCount: Int, for trackID: UUID) {
+        guard let index = tracks.firstIndex(where: { $0.id == trackID }) else { return }
+        // 字幕を差し替えて項目の区切りが変わっていたら、古い印は当てにならないので捨てる
+        if tracks[index].learnedCueCount != cueCount {
+            tracks[index].learnedGroups = []
+            tracks[index].learnedCueCount = cueCount
+        }
+        if learned {
+            tracks[index].learnedGroups.insert(group)
+        } else {
+            tracks[index].learnedGroups.remove(group)
+        }
+        save()
+    }
+
+    func clearLearned(for trackID: UUID) {
+        guard let index = tracks.firstIndex(where: { $0.id == trackID }) else { return }
+        tracks[index].learnedGroups = []
+        save()
+    }
+
+    /// 保存されている印が今の字幕に対応しているときだけ返す。
+    func learnedGroups(for trackID: UUID, cueCount: Int) -> Set<Int> {
+        guard let track = tracks.first(where: { $0.id == trackID }),
+              track.learnedCueCount == cueCount else { return [] }
+        return track.learnedGroups
+    }
+
     func updatePosition(_ position: Double, for trackID: UUID) {
         guard let index = tracks.firstIndex(where: { $0.id == trackID }) else { return }
         // 1 秒未満の差では書き込まない(再生中に毎秒保存すると無駄が大きい)

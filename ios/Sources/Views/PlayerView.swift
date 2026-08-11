@@ -8,9 +8,10 @@ struct PlayerView: View {
     @EnvironmentObject private var player: PlayerEngine
 
     @State private var isImportingSubtitle = false
-    @State private var showsCueList = false
+    @State private var showsTranscript = true
     @State private var scrubValue: Double = 0
     @State private var isScrubbing = false
+    @State private var confirmClearLearned = false
 
     /// ライブラリ側が更新される(字幕を後から足す等)ので、常に最新を引き直す。
     private var liveTrack: Track {
@@ -19,47 +20,23 @@ struct PlayerView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            SubtitlePanel(
-                cue: player.currentCue,
-                hasSubtitles: player.hasSubtitles,
-                onAddSubtitle: { isImportingSubtitle = true }
-            )
-            .frame(maxHeight: .infinity)
+            display
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            VStack(spacing: 24) {
+            VStack(spacing: 20) {
                 seekSection
                 transportSection
+                learnedSection
                 SpeedControlView()
             }
             .padding(.horizontal, 20)
-            .padding(.top, 16)
-            .padding(.bottom, 24)
+            .padding(.top, 14)
+            .padding(.bottom, 20)
             .background(.bar)
         }
         .navigationTitle(liveTrack.displayName)
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Menu {
-                    Button {
-                        isImportingSubtitle = true
-                    } label: {
-                        Label(liveTrack.hasSubtitle ? "字幕を差し替え" : "字幕を追加", systemImage: "captions.bubble")
-                    }
-                    Button {
-                        showsCueList = true
-                    } label: {
-                        Label("字幕を一覧で見る", systemImage: "list.bullet")
-                    }
-                    .disabled(!player.hasSubtitles)
-                } label: {
-                    Image(systemName: "ellipsis.circle")
-                }
-            }
-        }
-        .sheet(isPresented: $showsCueList) {
-            CueListView()
-        }
+        .toolbar { toolbarContent }
         .fileImporter(
             isPresented: $isImportingSubtitle,
             // .srt / .vtt は iOS に標準登録された型がないため、テキスト全般を許可する。
@@ -68,7 +45,67 @@ struct PlayerView: View {
         ) { result in
             handleSubtitleImport(result)
         }
+        .alert("覚えた印をすべて消しますか?", isPresented: $confirmClearLearned) {
+            Button("キャンセル", role: .cancel) {}
+            Button("すべて消す", role: .destructive) {
+                library.clearLearned(for: track.id)
+                player.applyLearned([])
+            }
+        } message: {
+            Text("\(player.learnedGroups.count) 項目の印が消えます。元に戻せません。")
+        }
         .onAppear(perform: loadIfNeeded)
+    }
+
+    // MARK: - 表示部
+
+    @ViewBuilder
+    private var display: some View {
+        if showsTranscript && player.hasSubtitles {
+            TranscriptView(onToggleLearned: setLearned)
+        } else {
+            SubtitlePanel(
+                cue: player.currentCue,
+                hasSubtitles: player.hasSubtitles,
+                onAddSubtitle: { isImportingSubtitle = true }
+            )
+        }
+    }
+
+    @ToolbarContentBuilder
+    private var toolbarContent: some ToolbarContent {
+        ToolbarItem(placement: .primaryAction) {
+            Menu {
+                Picker("表示", selection: $showsTranscript) {
+                    Label("字幕を並べる", systemImage: "list.bullet").tag(true)
+                    Label("1 行だけ大きく", systemImage: "textformat.size").tag(false)
+                }
+                .pickerStyle(.inline)
+                .disabled(!player.hasSubtitles)
+
+                Toggle(isOn: $player.skipLearned) {
+                    Label("覚えた項目を飛ばす", systemImage: "forward.end.alt")
+                }
+
+                Divider()
+
+                Button {
+                    isImportingSubtitle = true
+                } label: {
+                    Label(liveTrack.hasSubtitle ? "字幕を差し替え" : "字幕を追加",
+                          systemImage: "captions.bubble")
+                }
+
+                Button(role: .destructive) {
+                    confirmClearLearned = true
+                } label: {
+                    Label("覚えた印をすべて消す", systemImage: "trash")
+                }
+                .disabled(player.learnedGroups.isEmpty)
+            } label: {
+                Image(systemName: "ellipsis.circle")
+            }
+        }
     }
 
     // MARK: - シーク
@@ -111,12 +148,12 @@ struct PlayerView: View {
     // MARK: - 再生コントロール
 
     private var transportSection: some View {
-        HStack(spacing: 44) {
+        HStack(spacing: 40) {
             Button {
                 player.skip(-PlayerEngine.skipInterval)
             } label: {
                 Image(systemName: "gobackward.10")
-                    .font(.system(size: 32))
+                    .font(.system(size: 30))
             }
             .accessibilityLabel("10秒戻る")
 
@@ -124,7 +161,7 @@ struct PlayerView: View {
                 player.togglePlayPause()
             } label: {
                 Image(systemName: player.isPlaying ? "pause.circle.fill" : "play.circle.fill")
-                    .font(.system(size: 68))
+                    .font(.system(size: 64))
             }
             .disabled(!player.isReady)
             .accessibilityLabel(player.isPlaying ? "一時停止" : "再生")
@@ -133,14 +170,72 @@ struct PlayerView: View {
                 player.skip(PlayerEngine.skipInterval)
             } label: {
                 Image(systemName: "goforward.10")
-                    .font(.system(size: 32))
+                    .font(.system(size: 30))
             }
             .accessibilityLabel("10秒進む")
         }
         .foregroundStyle(.tint)
     }
 
+    // MARK: - 覚えた項目の操作
+
+    @ViewBuilder
+    private var learnedSection: some View {
+        if player.hasSubtitles && !player.groups.isEmpty {
+            HStack(spacing: 10) {
+                Button {
+                    player.replayCurrentGroup()
+                } label: {
+                    Label("もう一度", systemImage: "arrow.counterclockwise")
+                        .font(.subheadline.weight(.medium))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 9)
+                        .background(RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(Color.secondary.opacity(0.15)))
+                }
+                .buttonStyle(.plain)
+                .disabled(player.currentGroupIndex == nil)
+
+                Button {
+                    guard let index = player.currentGroupIndex else { return }
+                    setLearned(index, !player.learnedGroups.contains(index))
+                } label: {
+                    Label(isCurrentLearned ? "覚えた印を外す" : "この項目は覚えた",
+                          systemImage: isCurrentLearned ? "checkmark.circle.fill" : "checkmark.circle")
+                        .font(.subheadline.weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 9)
+                        .background(RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(isCurrentLearned ? Color.accentColor : Color.secondary.opacity(0.15)))
+                        .foregroundStyle(isCurrentLearned ? Color.white : Color.primary)
+                }
+                .buttonStyle(.plain)
+                .disabled(player.currentGroupIndex == nil)
+                // 一覧側の丸印と同じ読み上げにならないよう、再生中の項目だと分かる言い方にする
+                .accessibilityLabel(isCurrentLearned ? "再生中の項目の覚えた印を外す" : "再生中の項目を覚えた")
+                .accessibilityIdentifier("markCurrentLearned")
+            }
+
+            if !player.learnedGroups.isEmpty {
+                Text("\(player.learnedGroups.count) / \(player.groups.count) 項目を習得済み"
+                     + (player.skipLearned ? "(再生時に飛ばします)" : ""))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private var isCurrentLearned: Bool {
+        guard let index = player.currentGroupIndex else { return false }
+        return player.learnedGroups.contains(index)
+    }
+
     // MARK: - 処理
+
+    private func setLearned(_ group: Int, _ learned: Bool) {
+        player.setLearned(learned, group: group)
+        library.setLearned(learned, group: group, cueCount: player.cues.count, for: track.id)
+    }
 
     private func loadIfNeeded() {
         guard player.currentTrackID != track.id else { return }
@@ -152,11 +247,13 @@ struct PlayerView: View {
             trackID: current.id,
             startAt: current.lastPosition
         )
+        player.applyLearned(library.learnedGroups(for: current.id, cueCount: player.cues.count))
     }
 
     private func handleSubtitleImport(_ result: Result<URL, Error>) {
         guard case .success(let url) = result else { return }
         try? library.importSubtitle(from: url, for: track.id)
         player.loadSubtitles(from: library.subtitleURL(for: liveTrack))
+        player.applyLearned(library.learnedGroups(for: track.id, cueCount: player.cues.count))
     }
 }
