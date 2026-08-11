@@ -2,6 +2,9 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct LibraryView: View {
+    /// 音源を開く操作。画面の重なりは呼び出し側が持つ。
+    var onOpen: (UUID) -> Void
+
     @EnvironmentObject private var library: LibraryStore
     @EnvironmentObject private var player: PlayerEngine
 
@@ -89,9 +92,18 @@ struct LibraryView: View {
     private var trackList: some View {
         List {
             ForEach(library.tracks) { track in
-                NavigationLink(value: track.id) {
-                    row(for: track)
+                Button {
+                    onOpen(track.id)
+                } label: {
+                    HStack {
+                        row(for: track)
+                        Spacer(minLength: 8)
+                        Image(systemName: "chevron.right")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(.tertiary)
+                    }
                 }
+                .buttonStyle(.plain)
                 .contextMenu { menu(for: track) }
                 .swipeActions(edge: .trailing) {
                     Button(role: .destructive) {
@@ -107,11 +119,6 @@ struct LibraryView: View {
                     }
                     .tint(.orange)
                 }
-            }
-        }
-        .navigationDestination(for: UUID.self) { trackID in
-            if let track = library.tracks.first(where: { $0.id == trackID }) {
-                PlayerView(track: track)
             }
         }
     }

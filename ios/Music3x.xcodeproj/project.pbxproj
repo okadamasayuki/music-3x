@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		14411085C7F58CF39A37A612 /* LibraryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9C2DF197A39C62F3D1D5D44 /* LibraryStore.swift */; };
 		1EF9180B461651CFF0C4A64C /* Track.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FF5423FEBB1CAC5972EFD64 /* Track.swift */; };
+		241862241958D5709000C08C /* LibraryTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A38C7CD1E1C4B59AC16FBC7 /* LibraryTab.swift */; };
 		24D62CE246199DE78D1A7DD4 /* PlayerEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD55C64EF5CF7A134903EC5B /* PlayerEngine.swift */; };
 		3B8560EF64AE76541364162B /* SubtitleGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E4F269A9F70B5935E1FD9A2 /* SubtitleGroup.swift */; };
 		425076259D9B0E623CC0843B /* PlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32FA4B29DC94F1E03CBF1752 /* PlayerView.swift */; };
@@ -29,6 +30,7 @@
 
 /* Begin PBXFileReference section */
 		02D2EB317F865EDD722D8F13 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		0A38C7CD1E1C4B59AC16FBC7 /* LibraryTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryTab.swift; sourceTree = "<group>"; };
 		238C0192E608DC061F6D8E2A /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
 		27C5C675B76EF2C72648E5C4 /* PhraseListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhraseListView.swift; sourceTree = "<group>"; };
 		32FA4B29DC94F1E03CBF1752 /* PlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerView.swift; sourceTree = "<group>"; };
@@ -111,6 +113,7 @@
 			isa = PBXGroup;
 			children = (
 				E3D652ECB1E12DA1EF13B226 /* CueListView.swift */,
+				0A38C7CD1E1C4B59AC16FBC7 /* LibraryTab.swift */,
 				238C0192E608DC061F6D8E2A /* LibraryView.swift */,
 				27C5C675B76EF2C72648E5C4 /* PhraseListView.swift */,
 				32FA4B29DC94F1E03CBF1752 /* PlayerView.swift */,
@@ -197,6 +200,7 @@
 				61C8EDA42C2FD21A1646DAD2 /* AppSettings.swift in Sources */,
 				C176B9C7F4B6313D08134B86 /* CueListView.swift in Sources */,
 				14411085C7F58CF39A37A612 /* LibraryStore.swift in Sources */,
+				241862241958D5709000C08C /* LibraryTab.swift in Sources */,
 				F1B100560829161A29151B3F /* LibraryView.swift in Sources */,
 				4FB1D9BC62C1F7DA505A4EB5 /* Music3xApp.swift in Sources */,
 				6DA33D03029AC455309C8290 /* NowPlayingArtwork.swift in Sources */,

@@ -2,27 +2,37 @@ import SwiftUI
 
 struct PlayerView: View {
     let track: Track
+    /// 戻るなぞり操作の進み具合。重なりを管理している側へ渡す。
+    var onBackDragChanged: (CGFloat) -> Void = { _ in }
+    var onBackDragEnded: (CGFloat, CGFloat) -> Void = { _, _ in }
 
     @EnvironmentObject private var library: LibraryStore
     @EnvironmentObject private var player: PlayerEngine
     @EnvironmentObject private var settings: AppSettings
 
-    @Environment(\.dismiss) private var dismiss
-
     @State private var scrubValue: Double = 0
     @State private var isScrubbing = false
+    /// 横向きの動きだと見極めがついたか。ついてから追従を始める。
+    @State private var isDraggingBack = false
 
-    /// 画面の左端から右へなぞったら一覧へ戻る。
-    /// 開始位置を端に限ることで、字幕の縦スクロールや行の操作とぶつからない。
+    /// 字幕の上を右へなぞると一覧へ戻る。
+    /// 縦スクロールと取り合わないよう、横の動きが縦を上回ったときだけ追従する。
     private var backSwipe: some Gesture {
-        DragGesture(minimumDistance: 20)
-            .onEnded { value in
-                guard value.startLocation.x < 44 else { return }
+        DragGesture(minimumDistance: 12)
+            .onChanged { value in
                 let horizontal = value.translation.width
-                let flick = value.predictedEndTranslation.width
-                guard horizontal > 60 || flick > 200 else { return }
-                guard abs(value.translation.height) < horizontal else { return }
-                dismiss()
+                let vertical = abs(value.translation.height)
+                if !isDraggingBack {
+                    guard horizontal > 12, horizontal > vertical * 1.4 else { return }
+                    isDraggingBack = true
+                }
+                onBackDragChanged(max(0, horizontal))
+            }
+            .onEnded { value in
+                guard isDraggingBack else { return }
+                isDraggingBack = false
+                onBackDragEnded(max(0, value.translation.width),
+                                max(0, value.predictedEndTranslation.width))
             }
     }
 
@@ -59,8 +69,6 @@ struct PlayerView: View {
             .padding(.bottom, 8)
             .background(.bar)
         }
-        // 字幕を少しでも広く使うため、画面上部の帯は出さない。
-        .toolbar(.hidden, for: .navigationBar)
         .onAppear(perform: loadIfNeeded)
     }
 

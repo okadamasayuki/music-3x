@@ -8,16 +8,15 @@ struct RootView: View {
     private enum Tab: Hashable { case library, phrases, settings }
 
     @State private var selectedTab: Tab = .library
-    @State private var libraryPath = NavigationPath()
+    @State private var openedTrackID: UUID?
 
-    /// 同じタブをもう一度押したら一覧へ戻す。再生画面から帯を無くしたため、
-    /// これが戻る手段になる(左端スワイプは字幕のスクロールと競合して効かない)。
+    /// 同じタブをもう一度押したら一覧へ戻す。なぞって戻す操作の補助。
     private var tabSelection: Binding<Tab> {
         Binding(
             get: { selectedTab },
             set: { new in
                 if new == .library && selectedTab == .library {
-                    libraryPath = NavigationPath()
+                    withAnimation(.easeOut(duration: 0.24)) { openedTrackID = nil }
                 }
                 selectedTab = new
             }
@@ -26,11 +25,9 @@ struct RootView: View {
 
     var body: some View {
         TabView(selection: tabSelection) {
-            NavigationStack(path: $libraryPath) {
-                LibraryView()
-            }
-            .tabItem { Label("ライブラリ", systemImage: "music.note.list") }
-            .tag(Tab.library)
+            LibraryTab(openedTrackID: $openedTrackID)
+                .tabItem { Label("ライブラリ", systemImage: "music.note.list") }
+                .tag(Tab.library)
 
             NavigationStack {
                 PhraseListView()
