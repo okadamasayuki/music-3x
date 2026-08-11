@@ -23,7 +23,7 @@ struct LibraryView: View {
                 trackList
             }
         }
-        .navigationTitle("ライブラリ")
+        .navigationTitle("")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {
@@ -157,32 +157,13 @@ struct LibraryView: View {
     }
 
     private func row(for track: Track) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: player.currentTrackID == track.id && player.isPlaying
-                  ? "waveform" : "music.note")
-                .font(.title3)
-                .foregroundStyle(.tint)
-                .frame(width: 28)
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text(track.displayName)
-                    .font(.body)
-                    .lineLimit(2)
-
-                HStack(spacing: 8) {
-                    if track.hasSubtitle {
-                        Label("字幕あり", systemImage: "captions.bubble")
-                    }
-                    if track.lastPosition > 5 {
-                        Label(TimeFormatter.string(from: track.lastPosition) + " から",
-                              systemImage: "clock.arrow.circlepath")
-                    }
-                }
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            }
-        }
-        .padding(.vertical, 2)
+        // 名前だけを出す。字幕の有無や再生位置は開けば分かるため、
+        // 一覧では省いて読みやすさを優先する。高さは従来のまま保つ。
+        Text(track.displayName)
+            .font(.body)
+            .lineLimit(2)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, 14)
     }
 
     // MARK: - 空の状態

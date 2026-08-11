@@ -60,14 +60,16 @@ struct PhraseListView: View {
 
     private var header: some View {
         VStack(spacing: 10) {
-            HStack {
+            HStack(spacing: 10) {
                 Text(player.title.isEmpty ? "音源" : player.title)
                     .font(.subheadline.weight(.semibold))
                     .lineLimit(1)
-                Spacer()
+                Spacer(minLength: 4)
                 Text("\(player.learnedGroups.count) / \(player.groups.count)")
                     .font(.subheadline.monospacedDigit())
                     .foregroundStyle(.secondary)
+                // 訳を隠して意味を思い出す確認を、この画面でも一手で行えるようにする
+                TranslationToggle()
             }
 
             ProgressView(value: Double(player.learnedGroups.count),

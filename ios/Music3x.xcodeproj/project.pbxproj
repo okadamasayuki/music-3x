@@ -25,10 +25,12 @@
 		D9D4D8B2D8DAAEBACFA86252 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 02D2EB317F865EDD722D8F13 /* Assets.xcassets */; };
 		E2C1D8C721EFF7D2C5F3C1D5 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A3A59C2686651B2E59D97D /* RootView.swift */; };
 		F1B100560829161A29151B3F /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 238C0192E608DC061F6D8E2A /* LibraryView.swift */; };
+		F351291D6EFA126FE83CE340 /* TranslationToggle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21DCDD447820262337CE6794 /* TranslationToggle.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		02D2EB317F865EDD722D8F13 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		21DCDD447820262337CE6794 /* TranslationToggle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranslationToggle.swift; sourceTree = "<group>"; };
 		238C0192E608DC061F6D8E2A /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
 		27C5C675B76EF2C72648E5C4 /* PhraseListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhraseListView.swift; sourceTree = "<group>"; };
 		32FA4B29DC94F1E03CBF1752 /* PlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerView.swift; sourceTree = "<group>"; };
@@ -119,6 +121,7 @@
 				651095C6AB565A4B8B7197D3 /* SpeedPresetRow.swift */,
 				EBC1A8CEAF637D2338BC6374 /* TimeFormatter.swift */,
 				B0A7C444C20CC4B321572CDB /* TranscriptView.swift */,
+				21DCDD447820262337CE6794 /* TranslationToggle.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -211,6 +214,7 @@
 				97D8A32E3A1E1D57AD0BE32E /* TimeFormatter.swift in Sources */,
 				1EF9180B461651CFF0C4A64C /* Track.swift in Sources */,
 				5B438BC6E095BF1BB584BD11 /* TranscriptView.swift in Sources */,
+				F351291D6EFA126FE83CE340 /* TranslationToggle.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

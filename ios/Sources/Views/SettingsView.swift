@@ -8,13 +8,9 @@ struct SettingsView: View {
             Section {
                 // プレイヤー画面と同じボタンとスライダーを使う
                 SpeedPresetRow(selection: $settings.defaultSpeed)
-                    .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 6, trailing: 16))
-                SpeedFineSlider(value: $settings.defaultSpeed)
+                    .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
             } header: {
-                Text("既定の再生速度")
-            } footer: {
-                Text("現在 \(SpeedFormatter.label(for: settings.defaultSpeed))。"
-                     + "ここで変えると、再生中の音源にもすぐ反映されます。")
+                Text("既定の再生速度: \(SpeedFormatter.label(for: settings.defaultSpeed))")
             }
 
             Section {

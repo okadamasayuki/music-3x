@@ -108,12 +108,6 @@ struct PlayerView: View {
                 Text(TimeFormatter.string(from: displayedTime))
                     .accessibilityIdentifier("elapsed")
                 Spacer()
-                Text(SpeedFormatter.label(for: player.speed))
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.tint)
-                    .accessibilityLabel("再生速度 \(SpeedFormatter.label(for: player.speed))")
-                    .accessibilityIdentifier("speed")
-                Spacer()
                 Text(TimeFormatter.string(from: player.effectiveDuration))
                     .accessibilityIdentifier("duration")
             }
@@ -138,27 +132,21 @@ struct PlayerView: View {
         ZStack {
             transportButtons
             HStack {
+                TranslationToggle()
                 Spacer()
-                translationToggle
+                speedLabel
             }
         }
     }
 
-    /// 訳の表示を 1 タップで切り替える。設定を開かずに、
-    /// 訳を隠して思い出す・確認のため戻す、を素早く行き来できるようにする。
-    private var translationToggle: some View {
-        Button {
-            settings.showTranslation.toggle()
-        } label: {
-            Image(systemName: settings.showTranslation ? "captions.bubble.fill" : "captions.bubble")
-                .font(.system(size: 22))
-                .foregroundStyle(settings.showTranslation ? Color.accentColor : Color.secondary)
-                .frame(width: 44, height: 44)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(settings.showTranslation ? "日本語訳を隠す" : "日本語訳を表示")
-        .accessibilityIdentifier("translationToggle")
+    /// 今の再生速度。操作は設定側にあるので、ここでは表示だけ。
+    private var speedLabel: some View {
+        Text(SpeedFormatter.label(for: player.speed))
+            .font(.system(size: 17, weight: .semibold))
+            .foregroundStyle(.tint)
+            .frame(minWidth: 40, minHeight: 32)
+            .accessibilityLabel("再生速度 \(SpeedFormatter.label(for: player.speed))")
+            .accessibilityIdentifier("speed")
     }
 
     private var transportButtons: some View {
