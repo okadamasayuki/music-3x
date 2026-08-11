@@ -168,6 +168,21 @@ final class LibraryStore: ObservableObject {
             }
         }
         discoverUnindexedFiles()
+        linkMatchingSubtitles()
+    }
+
+    /// 音源と同じ名前の字幕が後から置かれた場合に紐付ける。
+    /// 取り込み時にしか探していないと、字幕だけ後から入れたときに気づけない。
+    private func linkMatchingSubtitles() {
+        var changed = false
+        for (index, track) in tracks.enumerated() where track.subtitleFileName == nil {
+            let base = (track.audioFileName as NSString).deletingPathExtension
+            if let found = existingSubtitleFileName(matching: base) {
+                tracks[index].subtitleFileName = found
+                changed = true
+            }
+        }
+        if changed { save() }
     }
 
     /// Finder や「ファイル」アプリから Media へ直接置かれた音源を拾って一覧に加える。
