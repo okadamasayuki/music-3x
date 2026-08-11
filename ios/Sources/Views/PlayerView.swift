@@ -28,7 +28,6 @@ struct PlayerView: View {
                 seekSection
                 transportSection
                 learnedSection
-                SpeedControlView()
             }
             .padding(.horizontal, 20)
             .padding(.top, 14)

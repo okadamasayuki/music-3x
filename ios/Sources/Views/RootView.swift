@@ -26,10 +26,13 @@ struct RootView: View {
         }
         .onChange(of: settings.skipInterval) { _ in applySettings() }
         .onChange(of: settings.skipLearned) { _ in applySettings() }
+        .onChange(of: settings.defaultSpeed) { _ in applySettings() }
     }
 
     private func applySettings() {
         player.skipInterval = settings.skipInterval
         player.skipLearned = settings.skipLearned
+        // 速度の操作はプレイヤー画面から外したので、設定を変えたら再生中でもすぐ反映する
+        player.speed = settings.defaultSpeed
     }
 }

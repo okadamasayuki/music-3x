@@ -1,6 +1,7 @@
 import AVFoundation
 import Combine
 import MediaPlayer
+import UIKit
 
 /// AVPlayer をラップした再生エンジン。
 /// 倍速・字幕同期・ロック画面操作・バックグラウンド再生をここで面倒を見る。
@@ -288,10 +289,14 @@ final class PlayerEngine: ObservableObject {
             if time >= cue.start && time <= cue.end { return }
         }
         let found = cues.cue(at: time)
-        if found != currentCueIndex { currentCueIndex = found }
+        let changed = found != currentCueIndex
+        if changed { currentCueIndex = found }
 
         let g = groups.group(at: time)
         if g != currentGroupIndex { currentGroupIndex = g }
+
+        // 行が変わったときだけロック画面を描き替える
+        if changed { updateNowPlayingInfo() }
     }
 
     // MARK: - 覚えた項目を飛ばす
@@ -471,6 +476,38 @@ final class PlayerEngine: ObservableObject {
             // ロック画面のアーティスト欄に字幕を出す。画面を見ずに聞くときの手がかりになる。
             info[MPMediaItemPropertyArtist] = cue.text.replacingOccurrences(of: "\n", with: " ")
         }
+        if let artwork = lockScreenArtwork() {
+            info[MPMediaItemPropertyArtwork] = artwork
+        }
         MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+    }
+
+    // MARK: - ロック画面に出す字幕の絵
+
+    private var artworkCacheKey: String?
+    private var artworkCache: MPMediaItemArtwork?
+
+    /// 今の項目の各行を描いた絵を返す。内容が変わっていなければ描き直さない。
+    private func lockScreenArtwork() -> MPMediaItemArtwork? {
+        guard let groupIndex = currentGroupIndex, groups.indices.contains(groupIndex) else {
+            return artworkCache
+        }
+        let lines = groups[groupIndex].lines(in: cues)
+        guard !lines.isEmpty else { return artworkCache }
+
+        let highlighted = currentCueIndex.flatMap { current in
+            lines.firstIndex { $0.cueIndices.contains(current) }
+        } ?? -1
+
+        let key = "\(groupIndex)-\(highlighted)-\(lines.count)"
+        if key == artworkCacheKey, let cached = artworkCache { return cached }
+
+        let texts = lines.map(\.text)
+        let artwork = MPMediaItemArtwork(boundsSize: CGSize(width: 1024, height: 1024)) { size in
+            NowPlayingArtwork.render(lines: texts, highlighted: highlighted, size: size)
+        }
+        artworkCacheKey = key
+        artworkCache = artwork
+        return artwork
     }
 }

@@ -9,7 +9,6 @@
 /* Begin PBXBuildFile section */
 		0EDA4A490384D3860D828431 /* SubtitlePanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC05B28C89A31B0E42A89FF5 /* SubtitlePanel.swift */; };
 		14411085C7F58CF39A37A612 /* LibraryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9C2DF197A39C62F3D1D5D44 /* LibraryStore.swift */; };
-		14E1D36A74BDCE6861B7C1ED /* SpeedControlView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3DA7FCE59C5DBBA265EDC53 /* SpeedControlView.swift */; };
 		1EF9180B461651CFF0C4A64C /* Track.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FF5423FEBB1CAC5972EFD64 /* Track.swift */; };
 		24D62CE246199DE78D1A7DD4 /* PlayerEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD55C64EF5CF7A134903EC5B /* PlayerEngine.swift */; };
 		3B8560EF64AE76541364162B /* SubtitleGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E4F269A9F70B5935E1FD9A2 /* SubtitleGroup.swift */; };
@@ -18,6 +17,7 @@
 		5B438BC6E095BF1BB584BD11 /* TranscriptView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0A7C444C20CC4B321572CDB /* TranscriptView.swift */; };
 		61C8EDA42C2FD21A1646DAD2 /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39C3FDEDD3F977E94B7812C6 /* AppSettings.swift */; };
 		6907FA5C8A156256F1866130 /* SpeedPresetRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 651095C6AB565A4B8B7197D3 /* SpeedPresetRow.swift */; };
+		6DA33D03029AC455309C8290 /* NowPlayingArtwork.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBCB560C444E0739E09CED95 /* NowPlayingArtwork.swift */; };
 		759B1DF474550BEEF9D696E8 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1D50B8DFB7B6FAA98557EC5 /* SettingsView.swift */; };
 		892508D7328267F6238A1304 /* SubtitleCue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73F58DD76510EE6C78FBF440 /* SubtitleCue.swift */; };
 		97D8A32E3A1E1D57AD0BE32E /* TimeFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBC1A8CEAF637D2338BC6374 /* TimeFormatter.swift */; };
@@ -41,12 +41,12 @@
 		C9C2DF197A39C62F3D1D5D44 /* LibraryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryStore.swift; sourceTree = "<group>"; };
 		CC05B28C89A31B0E42A89FF5 /* SubtitlePanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubtitlePanel.swift; sourceTree = "<group>"; };
 		CDB3694C9A822AF1D88D82E7 /* Music3xApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Music3xApp.swift; sourceTree = "<group>"; };
+		DBCB560C444E0739E09CED95 /* NowPlayingArtwork.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NowPlayingArtwork.swift; sourceTree = "<group>"; };
 		DD55C64EF5CF7A134903EC5B /* PlayerEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerEngine.swift; sourceTree = "<group>"; };
 		E3D652ECB1E12DA1EF13B226 /* CueListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CueListView.swift; sourceTree = "<group>"; };
 		EBC1A8CEAF637D2338BC6374 /* TimeFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeFormatter.swift; sourceTree = "<group>"; };
 		F1A3A59C2686651B2E59D97D /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		F1D50B8DFB7B6FAA98557EC5 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
-		F3DA7FCE59C5DBBA265EDC53 /* SpeedControlView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeedControlView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -78,6 +78,7 @@
 		A483A151C75AC843ED60BB1F /* Player */ = {
 			isa = PBXGroup;
 			children = (
+				DBCB560C444E0739E09CED95 /* NowPlayingArtwork.swift */,
 				DD55C64EF5CF7A134903EC5B /* PlayerEngine.swift */,
 			);
 			path = Player;
@@ -114,7 +115,6 @@
 				32FA4B29DC94F1E03CBF1752 /* PlayerView.swift */,
 				F1A3A59C2686651B2E59D97D /* RootView.swift */,
 				F1D50B8DFB7B6FAA98557EC5 /* SettingsView.swift */,
-				F3DA7FCE59C5DBBA265EDC53 /* SpeedControlView.swift */,
 				651095C6AB565A4B8B7197D3 /* SpeedPresetRow.swift */,
 				CC05B28C89A31B0E42A89FF5 /* SubtitlePanel.swift */,
 				EBC1A8CEAF637D2338BC6374 /* TimeFormatter.swift */,
@@ -199,11 +199,11 @@
 				14411085C7F58CF39A37A612 /* LibraryStore.swift in Sources */,
 				F1B100560829161A29151B3F /* LibraryView.swift in Sources */,
 				4FB1D9BC62C1F7DA505A4EB5 /* Music3xApp.swift in Sources */,
+				6DA33D03029AC455309C8290 /* NowPlayingArtwork.swift in Sources */,
 				24D62CE246199DE78D1A7DD4 /* PlayerEngine.swift in Sources */,
 				425076259D9B0E623CC0843B /* PlayerView.swift in Sources */,
 				E2C1D8C721EFF7D2C5F3C1D5 /* RootView.swift in Sources */,
 				759B1DF474550BEEF9D696E8 /* SettingsView.swift in Sources */,
-				14E1D36A74BDCE6861B7C1ED /* SpeedControlView.swift in Sources */,
 				6907FA5C8A156256F1866130 /* SpeedPresetRow.swift in Sources */,
 				892508D7328267F6238A1304 /* SubtitleCue.swift in Sources */,
 				3B8560EF64AE76541364162B /* SubtitleGroup.swift in Sources */,

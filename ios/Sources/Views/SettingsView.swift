@@ -13,8 +13,8 @@ struct SettingsView: View {
             } header: {
                 Text("既定の再生速度")
             } footer: {
-                Text("音源を開いたときの速度です。現在 \(SpeedControlView.label(for: settings.defaultSpeed))。"
-                     + "再生中はプレイヤー画面でいつでも変えられます。")
+                Text("現在 \(SpeedFormatter.label(for: settings.defaultSpeed))。"
+                     + "ここで変えると、再生中の音源にもすぐ反映されます。")
             }
 
             Section {
