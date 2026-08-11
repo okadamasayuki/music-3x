@@ -18,6 +18,11 @@ final class AppSettings: ObservableObject {
         didSet { store.set(skipLearned, forKey: Keys.skipLearned) }
     }
 
+    /// 覚えた印の付いた項目を字幕の一覧から消すか
+    @Published var hideLearned: Bool {
+        didSet { store.set(hideLearned, forKey: Keys.hideLearned) }
+    }
+
     static let speedChoices: [Double] = [1, 1.25, 1.5, 1.75, 2, 2.5, 3, 3.5, 4]
     static let skipChoices: [Double] = [5, 10, 15, 20, 30]
     static let speedRange: ClosedRange<Double> = 0.5...4.0
@@ -26,6 +31,7 @@ final class AppSettings: ObservableObject {
         static let defaultSpeed = "defaultSpeed"
         static let skipInterval = "skipInterval"
         static let skipLearned = "skipLearned"
+        static let hideLearned = "hideLearned"
     }
 
     private let store: UserDefaults
@@ -36,11 +42,13 @@ final class AppSettings: ObservableObject {
         defaultSpeed = (store.object(forKey: Keys.defaultSpeed) as? Double) ?? 1.0
         skipInterval = (store.object(forKey: Keys.skipInterval) as? Double) ?? 10
         skipLearned = (store.object(forKey: Keys.skipLearned) as? Bool) ?? true
+        hideLearned = (store.object(forKey: Keys.hideLearned) as? Bool) ?? false
     }
 
     func resetToDefaults() {
         defaultSpeed = 1.0
         skipInterval = 10
         skipLearned = true
+        hideLearned = false
     }
 }

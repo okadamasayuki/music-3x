@@ -34,8 +34,14 @@ struct SettingsView: View {
                 Toggle(isOn: $settings.skipLearned) {
                     Text("覚えた項目を飛ばす")
                 }
+                Toggle(isOn: $settings.hideLearned) {
+                    Text("覚えた項目を字幕から隠す")
+                }
+            } header: {
+                Text("覚えた項目")
             } footer: {
-                Text("覚えた印を付けた項目を再生時に読み飛ばし、その分だけ全体の長さも短く表示します。")
+                Text("「飛ばす」は再生時に読み飛ばし、その分だけ全体の長さも短く表示します。"
+                     + "「隠す」は字幕の一覧から消して、まだ覚えていない分だけを並べます。")
             }
 
             Section {

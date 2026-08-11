@@ -4,34 +4,49 @@ import SwiftUI
 /// 項目ごとに「覚えた」印を付けられ、印の付いた項目は再生時に飛ばせる。
 struct TranscriptView: View {
     @EnvironmentObject private var player: PlayerEngine
+    @EnvironmentObject private var settings: AppSettings
 
     /// 覚えた印の変更を保存するために呼び出し側へ渡す
     var onToggleLearned: (Int, Bool) -> Void
 
     @State private var isFollowing = true
 
+    /// 画面に出す項目。設定によっては覚えた分を伏せる。
+    private var visibleGroups: [SubtitleGroup] {
+        settings.hideLearned
+            ? player.groups.filter { !player.learnedGroups.contains($0.id) }
+            : player.groups
+    }
+
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 10) {
-                    ForEach(player.groups) { group in
-                        GroupBlock(
-                            group: group,
-                            lines: group.lines(in: player.cues),
-                            currentCueIndex: player.currentCueIndex,
-                            isLearned: player.learnedGroups.contains(group.id),
-                            onTapLine: { line in
-                                guard let first = line.cueIndices.first,
-                                      player.cues.indices.contains(first) else { return }
-                                player.seek(to: player.cues[first].start)
-                            },
-                            onToggleLearned: { onToggleLearned(group.id, !player.learnedGroups.contains(group.id)) }
-                        )
-                        .id(group.id)
+                if visibleGroups.isEmpty {
+                    emptyNotice
+                } else {
+                    LazyVStack(alignment: .leading, spacing: 4) {
+                        ForEach(visibleGroups) { group in
+                            GroupBlock(
+                                group: group,
+                                lines: group.lines(in: player.cues),
+                                // 項目が再生中なら、英文も訳もまとめて強調する
+                                isPlaying: isPlaying(group),
+                                isLearned: player.learnedGroups.contains(group.id),
+                                onTapLine: { line in
+                                    guard let first = line.cueIndices.first,
+                                          player.cues.indices.contains(first) else { return }
+                                    player.seek(to: player.cues[first].start)
+                                },
+                                onToggleLearned: {
+                                    onToggleLearned(group.id, !player.learnedGroups.contains(group.id))
+                                }
+                            )
+                            .id(group.id)
+                        }
                     }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
             }
             .overlay(alignment: .bottomTrailing) {
                 if !isFollowing {
@@ -59,8 +74,31 @@ struct TranscriptView: View {
         }
     }
 
+    private var emptyNotice: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "checkmark.circle")
+                .font(.system(size: 38))
+                .foregroundStyle(.tint)
+            Text("すべて覚えた印が付いています")
+                .font(.subheadline.weight(.medium))
+            Text("設定で「覚えた項目を字幕から隠す」を切ると表示されます。")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding(40)
+        .frame(maxWidth: .infinity)
+    }
+
+    private func isPlaying(_ group: SubtitleGroup) -> Bool {
+        guard let current = player.currentCueIndex else { return false }
+        return group.range.contains(current)
+    }
+
     private func scroll(_ proxy: ScrollViewProxy, animated: Bool) {
         guard let index = player.currentGroupIndex else { return }
+        // 伏せている項目へは飛べないので、表示中のものだけを対象にする
+        guard visibleGroups.contains(where: { $0.id == index }) else { return }
         if animated {
             withAnimation(.easeInOut(duration: 0.25)) { proxy.scrollTo(index, anchor: .center) }
         } else {
@@ -74,15 +112,10 @@ private struct GroupBlock: View {
     let group: SubtitleGroup
     /// 同じ文の読み直しはまとめてあるので、1 項目でも数行しか出ない
     let lines: [TranscriptLine]
-    let currentCueIndex: Int?
+    let isPlaying: Bool
     let isLearned: Bool
     let onTapLine: (TranscriptLine) -> Void
     let onToggleLearned: () -> Void
-
-    private var isCurrent: Bool {
-        guard let i = currentCueIndex else { return false }
-        return group.range.contains(i)
-    }
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
@@ -92,27 +125,22 @@ private struct GroupBlock: View {
                     .foregroundStyle(isLearned ? Color.accentColor : Color.secondary.opacity(0.5))
             }
             .buttonStyle(.plain)
-            .padding(.top, 2)
+            .padding(.top, 1)
             .accessibilityLabel(isLearned
                 ? "\(group.id + 1) 番目の項目の覚えた印を外す"
                 : "\(group.id + 1) 番目の項目を覚えた")
 
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: 0) {
                 ForEach(lines) { line in
-                    CueRow(
-                        text: line.text,
-                        // 読み直しの何回目が流れていても、その行を強調したままにする
-                        isCurrent: currentCueIndex.map { line.cueIndices.contains($0) } ?? false,
-                        onTap: { onTapLine(line) }
-                    )
+                    CueRow(text: line.text, isCurrent: isPlaying, onTap: { onTapLine(line) })
                 }
             }
         }
         .opacity(isLearned ? 0.4 : 1)
-        .padding(.vertical, 6)
+        .padding(.vertical, 3)
         .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(isCurrent ? Color.secondary.opacity(0.08) : Color.clear)
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(isPlaying ? Color.accentColor.opacity(0.12) : Color.clear)
         )
     }
 }
@@ -123,10 +151,6 @@ private struct CueRow: View {
     let isCurrent: Bool
     let onTap: () -> Void
 
-    private var background: Color {
-        isCurrent ? Color.accentColor.opacity(0.15) : Color.clear
-    }
-
     var body: some View {
         Button(action: onTap) {
             Text(text)
@@ -134,10 +158,10 @@ private struct CueRow: View {
                 .fontWeight(isCurrent ? .semibold : .regular)
                 .foregroundStyle(isCurrent ? Color.primary : Color.secondary)
                 .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.vertical, 3)
-                .padding(.horizontal, 8)
-                .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(background))
+                .padding(.vertical, 1)
+                .padding(.horizontal, 6)
         }
         .buttonStyle(.plain)
     }
