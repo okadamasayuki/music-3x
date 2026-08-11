@@ -136,7 +136,7 @@ extension Array where Element == SubtitleCue {
     }
 }
 
-private extension String {
+extension String {
     /// かな・漢字が主体なら訳の行とみなす。
     var looksLikeTranslation: Bool {
         var japanese = 0

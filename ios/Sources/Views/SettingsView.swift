@@ -31,6 +31,17 @@ struct SettingsView: View {
             }
 
             Section {
+                Toggle(isOn: $settings.showTranslation) {
+                    Text("日本語訳を表示")
+                }
+            } header: {
+                Text("字幕")
+            } footer: {
+                Text("切ると英文だけが並びます。訳を見ずに意味を思い出す練習に使えます。"
+                     + "音声はそのまま流れます。")
+            }
+
+            Section {
                 Toggle(isOn: $settings.skipLearned) {
                     Text("覚えた項目を飛ばす")
                 }

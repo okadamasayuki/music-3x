@@ -28,7 +28,7 @@ struct TranscriptView: View {
                         ForEach(visibleGroups) { group in
                             GroupBlock(
                                 group: group,
-                                lines: group.lines(in: player.cues),
+                                lines: displayLines(of: group),
                                 // 項目が再生中なら、英文も訳もまとめて強調する
                                 isPlaying: isPlaying(group),
                                 isLearned: player.learnedGroups.contains(group.id),
@@ -89,6 +89,15 @@ struct TranscriptView: View {
         }
         .padding(40)
         .frame(maxWidth: .infinity)
+    }
+
+    /// 訳を伏せる設定なら、訳の行を落として英文だけを並べる。
+    private func displayLines(of group: SubtitleGroup) -> [TranscriptLine] {
+        let lines = group.lines(in: player.cues)
+        guard !settings.showTranslation else { return lines }
+        let english = lines.filter { !$0.text.looksLikeTranslation }
+        // 訳しか無い項目まで消してしまわないよう、空になるなら元のまま出す
+        return english.isEmpty ? lines : english
     }
 
     /// 字幕と字幕の間や、同じ英文の読み直しの合間でも強調を切らさない。

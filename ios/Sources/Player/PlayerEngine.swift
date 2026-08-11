@@ -16,6 +16,14 @@ final class PlayerEngine: ObservableObject {
         didSet { updateRemoteSkipIntervals() }
     }
 
+    /// ロック画面に訳を出すか。画面内の一覧と揃える。
+    @Published var showsTranslation: Bool = true {
+        didSet {
+            artworkCacheKey = nil
+            updateNowPlayingInfo()
+        }
+    }
+
     @Published private(set) var isPlaying = false
     @Published private(set) var currentTime: Double = 0
     @Published private(set) var duration: Double = 0
@@ -171,7 +179,12 @@ final class PlayerEngine: ObservableObject {
             toleranceAfter: .zero
         )
         currentTime = target
+        // 強調位置もその場で更新する。次の定期更新を待つと、
+        // 音が鳴り始めてから字幕が光るまでに間が空いて見える。
         currentCueIndex = cues.cue(at: target)
+        let group = groups.group(at: target)
+        currentGroupIndex = group
+        if let group { highlightedGroupIndex = group }
         updateNowPlayingInfo()
     }
 
@@ -188,6 +201,9 @@ final class PlayerEngine: ObservableObject {
     func previewScrub(to time: Double) {
         currentTime = time
         currentCueIndex = cues.cue(at: time)
+        let group = groups.group(at: time)
+        currentGroupIndex = group
+        if let group { highlightedGroupIndex = group }
     }
 
     func jump(to cue: SubtitleCue) {
@@ -492,24 +508,34 @@ final class PlayerEngine: ObservableObject {
     private var artworkCacheKey: String?
     private var artworkCache: MPMediaItemArtwork?
 
-    /// 今の項目の各行を描いた絵を返す。内容が変わっていなければ描き直さない。
+    /// 前後の項目まで含めた絵を返す。内容が変わっていなければ描き直さない。
+    /// 全画面プレイヤーで開いたときに、流れている箇所の前後を追えるようにするため。
     private func lockScreenArtwork() -> MPMediaItemArtwork? {
-        guard let groupIndex = currentGroupIndex, groups.indices.contains(groupIndex) else {
+        guard let center = highlightedGroupIndex, groups.indices.contains(center) else {
             return artworkCache
         }
-        let lines = groups[groupIndex].lines(in: cues)
-        guard !lines.isEmpty else { return artworkCache }
 
-        let highlighted = currentCueIndex.flatMap { current in
-            lines.firstIndex { $0.cueIndices.contains(current) }
-        } ?? -1
+        // 前 1 件・後ろ 2 件。枠は正方形で高さがあるので、この数でも十分に大きく描ける。
+        let lower = max(0, center - 1)
+        let upper = min(groups.count - 1, center + 2)
 
-        let key = "\(groupIndex)-\(highlighted)-\(lines.count)"
+        var items: [NowPlayingArtwork.Item] = []
+        for index in lower...upper {
+            var texts = groups[index].lines(in: cues).map(\.text)
+            if !showsTranslation {
+                let english = texts.filter { !$0.looksLikeTranslation }
+                if !english.isEmpty { texts = english }
+            }
+            guard !texts.isEmpty else { continue }
+            items.append(.init(lines: texts, isCurrent: index == center))
+        }
+        guard !items.isEmpty else { return artworkCache }
+
+        let key = "\(lower)-\(center)-\(upper)-\(showsTranslation)"
         if key == artworkCacheKey, let cached = artworkCache { return cached }
 
-        let texts = lines.map(\.text)
         let artwork = MPMediaItemArtwork(boundsSize: CGSize(width: 1024, height: 1024)) { size in
-            NowPlayingArtwork.render(lines: texts, highlighted: highlighted, size: size)
+            NowPlayingArtwork.render(items: items, size: size)
         }
         artworkCacheKey = key
         artworkCache = artwork

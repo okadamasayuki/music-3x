@@ -1,5 +1,4 @@
 import SwiftUI
-import UIKit
 
 struct PlayerView: View {
     let track: Track
@@ -7,12 +6,25 @@ struct PlayerView: View {
     @EnvironmentObject private var library: LibraryStore
     @EnvironmentObject private var player: PlayerEngine
     @EnvironmentObject private var settings: AppSettings
+
     @Environment(\.dismiss) private var dismiss
 
     @State private var scrubValue: Double = 0
     @State private var isScrubbing = false
-    /// 戻るスワイプの進み具合。指に追従させて動かす。
-    @State private var backDrag: CGFloat = 0
+
+    /// 画面の左端から右へなぞったら一覧へ戻る。
+    /// 開始位置を端に限ることで、字幕の縦スクロールや行の操作とぶつからない。
+    private var backSwipe: some Gesture {
+        DragGesture(minimumDistance: 20)
+            .onEnded { value in
+                guard value.startLocation.x < 44 else { return }
+                let horizontal = value.translation.width
+                let flick = value.predictedEndTranslation.width
+                guard horizontal > 60 || flick > 200 else { return }
+                guard abs(value.translation.height) < horizontal else { return }
+                dismiss()
+            }
+    }
 
     /// ライブラリ側が更新される(字幕を後から足す等)ので、常に最新を引き直す。
     private var liveTrack: Track {
@@ -23,50 +35,33 @@ struct PlayerView: View {
         VStack(spacing: 0) {
             TranscriptView(onToggleLearned: setLearned)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                // 戻る操作は字幕の領域だけで受ける。下の操作部に付けると、
+                // 再生位置のスライダーを横に動かしただけで戻ってしまう。
+                .simultaneousGesture(backSwipe)
+                // 上端の字幕が時刻表示と重なって読みにくいので、そこだけ薄く消す
+                .mask(
+                    LinearGradient(
+                        stops: [
+                            .init(color: .clear, location: 0),
+                            .init(color: .black, location: 0.045),
+                            .init(color: .black, location: 1),
+                        ],
+                        startPoint: .top, endPoint: .bottom
+                    )
+                )
 
-            VStack(spacing: 20) {
+            VStack(spacing: 10) {
                 seekSection
                 transportSection
             }
             .padding(.horizontal, 20)
-            .padding(.top, 14)
-            .padding(.bottom, 20)
+            .padding(.top, 10)
+            .padding(.bottom, 8)
             .background(.bar)
         }
-        // 指の動きに合わせて画面ごと横へずらす。標準の戻る操作と同じ手触りにする。
-        .offset(x: backDrag)
-        .shadow(color: .black.opacity(backDrag > 0 ? 0.25 : 0), radius: 12, x: -6, y: 0)
         // 字幕を少しでも広く使うため、画面上部の帯は出さない。
         .toolbar(.hidden, for: .navigationBar)
-        // 帯を消すと iOS 標準の戻るスワイプも無効になるため、自前で受け取る。
-        // 縦スクロールを邪魔しないよう、横向きに振れたときだけ動かす。
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 18)
-                .onChanged { value in
-                    let horizontal = value.translation.width
-                    guard horizontal > 0, abs(value.translation.height) < horizontal else { return }
-                    // 引くほど重くして、行き過ぎないようにする
-                    backDrag = horizontal < 120 ? horizontal : 120 + (horizontal - 120) * 0.55
-                }
-                .onEnded { value in
-                    let horizontal = value.translation.width
-                    let enough = horizontal > 80 || value.predictedEndTranslation.width > 220
-                    if enough, abs(value.translation.height) < horizontal * 0.9 {
-                        withAnimation(.easeOut(duration: 0.2)) {
-                            backDrag = UIScreen.main.bounds.width
-                        }
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) { dismiss() }
-                    } else {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
-                            backDrag = 0
-                        }
-                    }
-                }
-        )
-        .onAppear {
-            backDrag = 0
-            loadIfNeeded()
-        }
+        .onAppear(perform: loadIfNeeded)
     }
 
     // MARK: - シーク
@@ -124,7 +119,7 @@ struct PlayerView: View {
     private var skipSeconds: Int { Int(player.skipInterval.rounded()) }
 
     private var transportSection: some View {
-        HStack(spacing: 40) {
+        HStack(spacing: 44) {
             Button {
                 player.skip(-player.skipInterval)
             } label: {
