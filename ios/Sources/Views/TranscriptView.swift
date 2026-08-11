@@ -32,10 +32,11 @@ struct TranscriptView: View {
                                 // 項目が再生中なら、英文も訳もまとめて強調する
                                 isPlaying: isPlaying(group),
                                 isLearned: player.learnedGroups.contains(group.id),
-                                onTapLine: { line in
+                                onPlayLine: { line in
                                     guard let first = line.cueIndices.first,
                                           player.cues.indices.contains(first) else { return }
                                     player.seek(to: player.cues[first].start)
+                                    player.play()
                                 },
                                 onToggleLearned: {
                                     onToggleLearned(group.id, !player.learnedGroups.contains(group.id))
@@ -114,7 +115,7 @@ private struct GroupBlock: View {
     let lines: [TranscriptLine]
     let isPlaying: Bool
     let isLearned: Bool
-    let onTapLine: (TranscriptLine) -> Void
+    let onPlayLine: (TranscriptLine) -> Void
     let onToggleLearned: () -> Void
 
     var body: some View {
@@ -132,7 +133,7 @@ private struct GroupBlock: View {
 
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(lines) { line in
-                    CueRow(text: line.text, isCurrent: isPlaying, onTap: { onTapLine(line) })
+                    CueRow(text: line.text, isCurrent: isPlaying, onPlay: { onPlayLine(line) })
                 }
             }
         }
@@ -145,24 +146,29 @@ private struct GroupBlock: View {
     }
 }
 
-/// 字幕 1 行。押すとその位置から再生する。
+/// 字幕 1 行。二度続けて押すと、その行から再生する。
+/// 一度押しでは動かさない。読み返しでスクロールしている最中に
+/// 触れただけで再生位置が飛ぶと邪魔になるため。
 private struct CueRow: View {
     let text: String
     let isCurrent: Bool
-    let onTap: () -> Void
+    let onPlay: () -> Void
 
     var body: some View {
-        Button(action: onTap) {
-            Text(text)
-                .font(.body)
-                .fontWeight(isCurrent ? .semibold : .regular)
-                .foregroundStyle(isCurrent ? Color.primary : Color.secondary)
-                .multilineTextAlignment(.leading)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.vertical, 1)
-                .padding(.horizontal, 6)
-        }
-        .buttonStyle(.plain)
+        Text(text)
+            .font(.body)
+            .fontWeight(isCurrent ? .semibold : .regular)
+            .foregroundStyle(isCurrent ? Color.primary : Color.secondary)
+            .multilineTextAlignment(.leading)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, 1)
+            .padding(.horizontal, 6)
+            .contentShape(Rectangle())
+            .onTapGesture(count: 2, perform: onPlay)
+            // 画面を見ずに操作する場合のために、読み上げからは一度の操作で実行できるようにする
+            .accessibilityAddTraits(.isButton)
+            .accessibilityHint("二回続けて押すと、ここから再生します")
+            .accessibilityAction(named: "ここから再生", onPlay)
     }
 }
