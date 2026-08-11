@@ -5,7 +5,7 @@ struct RootView: View {
     @EnvironmentObject private var player: PlayerEngine
     @EnvironmentObject private var settings: AppSettings
 
-    private enum Tab: Hashable { case library, settings }
+    private enum Tab: Hashable { case library, phrases, settings }
 
     @State private var selectedTab: Tab = .library
     @State private var libraryPath = NavigationPath()
@@ -31,6 +31,12 @@ struct RootView: View {
             }
             .tabItem { Label("ライブラリ", systemImage: "music.note.list") }
             .tag(Tab.library)
+
+            NavigationStack {
+                PhraseListView()
+            }
+            .tabItem { Label("フレーズ", systemImage: "checklist") }
+            .tag(Tab.phrases)
 
             NavigationStack {
                 SettingsView()
