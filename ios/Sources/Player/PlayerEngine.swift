@@ -29,6 +29,13 @@ final class PlayerEngine: ObservableObject {
         didSet { applyPitchAlgorithm() }
     }
 
+    @Published var stretchMode: StretchMode = StretchMode.saved {
+        didSet {
+            stretchMode.save()
+            applyPitchAlgorithm()
+        }
+    }
+
     /// 再生位置が変わるたびに呼ばれる。呼び出し側で保存に使う。
     var onPositionChange: ((UUID, Double) -> Void)?
 
@@ -178,9 +185,9 @@ final class PlayerEngine: ObservableObject {
     // MARK: - 速度と音程
 
     private var pitchAlgorithm: AVAudioTimePitchAlgorithm {
-        // .spectral は音程を保ったまま速度を変える。高倍速でも声が甲高くならない。
+        // 音程を保ったまま速度を変えるアルゴリズムは方式によって聞こえ方が変わる。
         // オフのときの .varispeed はテープ早回しと同じで音程が上がる。
-        preservesPitch ? .spectral : .varispeed
+        preservesPitch ? stretchMode.algorithm : .varispeed
     }
 
     private func applyRate() {
@@ -190,9 +197,21 @@ final class PlayerEngine: ObservableObject {
     }
 
     private func applyPitchAlgorithm() {
-        player.currentItem?.audioTimePitchAlgorithm = pitchAlgorithm
-        // アルゴリズム変更を今の再生に反映させるため rate を入れ直す
-        if isPlaying { player.rate = Float(speed) }
+        guard let item = player.currentItem else { return }
+        item.audioTimePitchAlgorithm = pitchAlgorithm
+
+        // 方式を差し替えても、すでに読み込み済みの音声には適用されない。
+        // 同じ位置へシークして音声パイプラインを作り直すことで即座に切り替える。
+        let shouldResume = isPlaying
+        let position = currentTime
+        player.seek(
+            to: CMTime(seconds: position, preferredTimescale: 600),
+            toleranceBefore: .zero,
+            toleranceAfter: .zero
+        ) { [weak self] _ in
+            guard let self, shouldResume else { return }
+            self.player.playImmediately(atRate: Float(self.speed))
+        }
     }
 
     // MARK: - 監視

@@ -34,6 +34,16 @@ struct SpeedControlView: View {
                     .font(.subheadline)
             }
             .toggleStyle(.switch)
+
+            // 伸ばし方の方式で声の聞こえ方が変わるので、再生しながら比べられるようにする
+            if player.preservesPitch {
+                Picker("音の伸ばし方", selection: $player.stretchMode) {
+                    ForEach(StretchMode.allCases) { mode in
+                        Text(mode.label).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+            }
         }
     }
 

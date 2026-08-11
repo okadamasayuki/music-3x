@@ -19,6 +19,7 @@
 		C176B9C7F4B6313D08134B86 /* CueListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3D652ECB1E12DA1EF13B226 /* CueListView.swift */; };
 		E2C1D8C721EFF7D2C5F3C1D5 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A3A59C2686651B2E59D97D /* RootView.swift */; };
 		F1B100560829161A29151B3F /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 238C0192E608DC061F6D8E2A /* LibraryView.swift */; };
+		FCC090AEB7C98802FA274D63 /* StretchMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3706CABC41BD0F49687CB6E /* StretchMode.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -30,6 +31,7 @@
 		C9C2DF197A39C62F3D1D5D44 /* LibraryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryStore.swift; sourceTree = "<group>"; };
 		CC05B28C89A31B0E42A89FF5 /* SubtitlePanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubtitlePanel.swift; sourceTree = "<group>"; };
 		CDB3694C9A822AF1D88D82E7 /* Music3xApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Music3xApp.swift; sourceTree = "<group>"; };
+		D3706CABC41BD0F49687CB6E /* StretchMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StretchMode.swift; sourceTree = "<group>"; };
 		DD55C64EF5CF7A134903EC5B /* PlayerEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerEngine.swift; sourceTree = "<group>"; };
 		E3D652ECB1E12DA1EF13B226 /* CueListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CueListView.swift; sourceTree = "<group>"; };
 		EBC1A8CEAF637D2338BC6374 /* TimeFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeFormatter.swift; sourceTree = "<group>"; };
@@ -58,6 +60,7 @@
 			isa = PBXGroup;
 			children = (
 				DD55C64EF5CF7A134903EC5B /* PlayerEngine.swift */,
+				D3706CABC41BD0F49687CB6E /* StretchMode.swift */,
 			);
 			path = Player;
 			sourceTree = "<group>";
@@ -164,6 +167,7 @@
 				425076259D9B0E623CC0843B /* PlayerView.swift in Sources */,
 				E2C1D8C721EFF7D2C5F3C1D5 /* RootView.swift in Sources */,
 				14E1D36A74BDCE6861B7C1ED /* SpeedControlView.swift in Sources */,
+				FCC090AEB7C98802FA274D63 /* StretchMode.swift in Sources */,
 				892508D7328267F6238A1304 /* SubtitleCue.swift in Sources */,
 				0EDA4A490384D3860D828431 /* SubtitlePanel.swift in Sources */,
 				97D8A32E3A1E1D57AD0BE32E /* TimeFormatter.swift in Sources */,
