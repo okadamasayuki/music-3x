@@ -29,6 +29,11 @@ final class AppSettings: ObservableObject {
         didSet { store.set(showTranslation, forKey: Keys.showTranslation) }
     }
 
+    /// 声の合図で印を付けるか。入れている間だけマイクを開く。
+    @Published var voiceControl: Bool {
+        didSet { store.set(voiceControl, forKey: Keys.voiceControl) }
+    }
+
     /// 文字の大きさ。textSizes の何番目か。
     /// 端末側の文字サイズ設定に引きずられず、このアプリだけで決められるようにする。
     @Published var textSizeStep: Int {
@@ -63,6 +68,7 @@ final class AppSettings: ObservableObject {
         static let hideLearned = "hideLearned"
         static let showTranslation = "showTranslation"
         static let textSizeStep = "textSizeStep"
+        static let voiceControl = "voiceControl"
     }
 
     private let store: UserDefaults
@@ -76,6 +82,8 @@ final class AppSettings: ObservableObject {
         hideLearned = (store.object(forKey: Keys.hideLearned) as? Bool) ?? false
         showTranslation = (store.object(forKey: Keys.showTranslation) as? Bool) ?? true
         textSizeStep = (store.object(forKey: Keys.textSizeStep) as? Int) ?? Self.defaultTextSizeStep
+        // 既定では切っておく。断りなくマイクを開かないため。
+        voiceControl = (store.object(forKey: Keys.voiceControl) as? Bool) ?? false
     }
 
     func resetToDefaults() {
@@ -85,5 +93,6 @@ final class AppSettings: ObservableObject {
         hideLearned = false
         showTranslation = true
         textSizeStep = Self.defaultTextSizeStep
+        voiceControl = false
     }
 }

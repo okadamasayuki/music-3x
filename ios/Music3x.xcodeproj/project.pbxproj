@@ -22,6 +22,7 @@
 		759B1DF474550BEEF9D696E8 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1D50B8DFB7B6FAA98557EC5 /* SettingsView.swift */; };
 		892508D7328267F6238A1304 /* SubtitleCue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73F58DD76510EE6C78FBF440 /* SubtitleCue.swift */; };
 		97D8A32E3A1E1D57AD0BE32E /* TimeFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBC1A8CEAF637D2338BC6374 /* TimeFormatter.swift */; };
+		BFC021A1ECA8F4B65A0F184B /* VoiceCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56087E98E2A0581D91A7D9CC /* VoiceCommands.swift */; };
 		C176B9C7F4B6313D08134B86 /* CueListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3D652ECB1E12DA1EF13B226 /* CueListView.swift */; };
 		C50EC7CC0FF1AFB54E278158 /* BackSwipe.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9BF7B0F7D4F5197CFA59E5F /* BackSwipe.swift */; };
 		D9D4D8B2D8DAAEBACFA86252 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 02D2EB317F865EDD722D8F13 /* Assets.xcassets */; };
@@ -40,6 +41,7 @@
 		39C3FDEDD3F977E94B7812C6 /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
 		4C7CDE600E2A0BEAC51F805C /* Music3x.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Music3x.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		4FF5423FEBB1CAC5972EFD64 /* Track.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Track.swift; sourceTree = "<group>"; };
+		56087E98E2A0581D91A7D9CC /* VoiceCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCommands.swift; sourceTree = "<group>"; };
 		651095C6AB565A4B8B7197D3 /* SpeedPresetRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeedPresetRow.swift; sourceTree = "<group>"; };
 		73F58DD76510EE6C78FBF440 /* SubtitleCue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubtitleCue.swift; sourceTree = "<group>"; };
 		8E4F269A9F70B5935E1FD9A2 /* SubtitleGroup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubtitleGroup.swift; sourceTree = "<group>"; };
@@ -86,6 +88,7 @@
 			children = (
 				DBCB560C444E0739E09CED95 /* NowPlayingArtwork.swift */,
 				DD55C64EF5CF7A134903EC5B /* PlayerEngine.swift */,
+				56087E98E2A0581D91A7D9CC /* VoiceCommands.swift */,
 			);
 			path = Player;
 			sourceTree = "<group>";
@@ -223,6 +226,7 @@
 				1EF9180B461651CFF0C4A64C /* Track.swift in Sources */,
 				5B438BC6E095BF1BB584BD11 /* TranscriptView.swift in Sources */,
 				F351291D6EFA126FE83CE340 /* TranslationToggle.swift in Sources */,
+				BFC021A1ECA8F4B65A0F184B /* VoiceCommands.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

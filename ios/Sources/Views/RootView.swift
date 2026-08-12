@@ -1,9 +1,11 @@
 import SwiftUI
+import UIKit
 
 struct RootView: View {
     @EnvironmentObject private var library: LibraryStore
     @EnvironmentObject private var player: PlayerEngine
     @EnvironmentObject private var settings: AppSettings
+    @EnvironmentObject private var voice: VoiceCommands
 
     private enum Tab: Hashable { case library, phrases, settings }
 
@@ -91,11 +93,14 @@ struct RootView: View {
                 library?.updatePosition(position, for: trackID)
             }
             applySettings()
+            voice.onCommand = { command in applyVoice(command) }
+            updateVoice()
         }
         .onChange(of: settings.skipInterval) { _ in applySettings() }
         .onChange(of: settings.skipLearned) { _ in applySettings() }
         .onChange(of: settings.defaultSpeed) { _ in applySettings() }
         .onChange(of: settings.showTranslation) { _ in applySettings() }
+        .onChange(of: settings.voiceControl) { _ in updateVoice() }
     }
 
     private var tabs: some View {
@@ -181,6 +186,33 @@ struct RootView: View {
         } else {
             withAnimation(.spring(response: 0.3, dampingFraction: 0.86)) { dragX = 0 }
         }
+    }
+
+    private func updateVoice() {
+        if settings.voiceControl {
+            voice.start()
+        } else {
+            voice.stop()
+            // 録音のために変えた音の設定を、再生だけの形へ戻す
+            player.configureAudioSession()
+        }
+    }
+
+    /// 声の合図を、いま流れている項目への印に変える。
+    /// 印を外す向きには使わない。聞き違いで消えると取り返しがつかないため。
+    private func applyVoice(_ command: VoiceCommands.Command) {
+        guard let trackID = player.currentTrackID,
+              let group = player.activeGroupIndex else { return }
+        switch command {
+        case .learned:
+            player.setLearned(true, group: group)
+            library.setLearned(true, group: group, cueCount: player.cues.count, for: trackID)
+        case .favorite:
+            player.setFavorite(true, group: group)
+            library.setFavorite(true, group: group, cueCount: player.cues.count, for: trackID)
+        }
+        // 画面を見ずに使うので、効いたことを振動で返す
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
     }
 
     private func applySettings() {

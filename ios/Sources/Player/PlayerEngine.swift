@@ -106,7 +106,8 @@ final class PlayerEngine: ObservableObject {
 
     /// 再生カテゴリを .playback にすることで、消音スイッチが入っていても鳴り、
     /// かつバックグラウンドでも再生が続くようになる(Info.plist の UIBackgroundModes と対で必要)。
-    private func configureAudioSession() {
+    /// 声で印を付けている間は録音も要るので、そちらでは playAndRecord へ切り替える。
+    func configureAudioSession() {
         let session = AVAudioSession.sharedInstance()
         do {
             try session.setCategory(.playback, mode: .spokenAudio, options: [])

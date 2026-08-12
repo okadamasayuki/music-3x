@@ -44,6 +44,9 @@ targets:
         # ロック画面操作とバックグラウンド再生に必須
         UIBackgroundModes:
           - audio
+        # 声で「覚えた」「お気に入り」と言って印を付けるために使う
+        NSMicrophoneUsageDescription: 聞きながら声で「覚えた」「お気に入り」と言うと、その場で印を付けます。設定で切っている間はマイクを使いません。
+        NSSpeechRecognitionUsageDescription: 声の合図を聞き分けるために使います。聞き取った言葉は印を付ける判定にだけ使い、どこにも送りません。
         # 「ファイル」アプリと Finder から音源を直接出し入れできるようにする
         UIFileSharingEnabled: true
         LSSupportsOpeningDocumentsInPlace: true

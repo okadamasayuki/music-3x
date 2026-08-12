@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject private var settings: AppSettings
+    @EnvironmentObject private var voice: VoiceCommands
 
     /// 無料の開発者アカウントで入れたアプリは 7 日で起動できなくなる。
     /// いつ入れ直しが要るのか、開かなくても分かるようにしておく。
@@ -64,6 +65,40 @@ struct SettingsView: View {
         }
     }
 
+    /// 声で印を付ける切り替え。反応しているかその場で分かるよう、
+    /// 聞き取った言葉をそのまま出す。
+    private var voiceSection: some View {
+        Section {
+            Toggle(isOn: $settings.voiceControl) {
+                Text("声で印を付ける")
+            }
+            .accessibilityIdentifier("voiceControl")
+
+            if settings.voiceControl {
+                if let problem = voice.problem {
+                    Text(problem)
+                        .font(.footnote)
+                        .foregroundStyle(.red)
+                } else {
+                    HStack {
+                        Text(voice.isListening ? "聞いています" : "準備中")
+                            .font(.footnote)
+                            .foregroundStyle(voice.isListening ? Color.green : Color.secondary)
+                        Spacer()
+                        Text(voice.lastHeard)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .accessibilityIdentifier("voiceHeard")
+                    }
+                }
+                Text("流れている項目に対して、「覚えた」で覚えた印、「お気に入り」で星が付きます。")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
     var body: some View {
         Form {
             textSizeSection
@@ -89,6 +124,7 @@ struct SettingsView: View {
                     Text("覚えた項目を字幕から隠す")
                 }
             }
+            voiceSection
             expirySection
         }
         .navigationTitle("設定")
