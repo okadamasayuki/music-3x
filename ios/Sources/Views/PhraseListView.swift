@@ -198,6 +198,7 @@ struct PhraseDetailView: View {
             .accessibilityLabel(isFavorite ? "お気に入りから外す" : "お気に入りに入れる")
         }
         .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("phraseRow")
     }
 
     private func displayLines(of group: SubtitleGroup) -> [TranscriptLine] {

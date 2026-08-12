@@ -81,16 +81,9 @@ struct SettingsView: View {
                 Text("既定の再生速度: \(SpeedFormatter.label(for: settings.defaultSpeed))")
             }
 
-            Section {
-                Picker("送り・戻しの秒数", selection: $settings.skipInterval) {
-                    ForEach(AppSettings.skipChoices, id: \.self) { s in
-                        Text("\(Int(s)) 秒").tag(s)
-                    }
-                }
-                .pickerStyle(.segmented)
-            } header: {
-                Text("送り・戻し")
-            }
+            // 送り・戻しの秒数はここから外した。画面の送り戻しを前後の塊への
+            // 移動に変えたので、秒数を決める場面が無くなったため。
+            // ロック画面の 10 秒送りだけは既定値のまま使う。
 
             Section {
                 Toggle(isOn: $settings.skipLearned) {

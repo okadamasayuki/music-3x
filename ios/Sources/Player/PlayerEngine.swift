@@ -60,6 +60,9 @@ final class PlayerEngine: ObservableObject {
         }
     }
 
+    /// 最後まで行ったら先頭へ戻して流し続ける。
+    @Published var repeatTrack: Bool = false
+
     var hasFavorites: Bool { !favoriteRanges.isEmpty }
 
     @Published var speed: Double = 1.0 {
@@ -318,6 +321,11 @@ final class PlayerEngine: ObservableObject {
             guard let self else { return }
             // お気に入りが末尾で終わる場合はここに来る。止めずに先頭へ返す。
             if self.repeatFavorites, self.confineToFavoritesIfNeeded(at: self.duration) {
+                self.play()
+                return
+            }
+            if self.repeatTrack {
+                self.seek(to: 0)
                 self.play()
                 return
             }

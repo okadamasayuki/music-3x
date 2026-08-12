@@ -85,7 +85,10 @@ struct PlayerView: View {
                     .font(.caption.monospacedDigit())
                     .foregroundStyle(.secondary)
                 Spacer()
-                favoriteRepeatButton
+                HStack(spacing: 8) {
+                    repeatTrackButton
+                    favoriteRepeatButton
+                }
                 Spacer()
                 Text(TimeFormatter.string(from: player.effectiveDuration))
                     .accessibilityIdentifier("duration")
@@ -93,6 +96,26 @@ struct PlayerView: View {
                     .foregroundStyle(.secondary)
             }
         }
+    }
+
+    /// 最後まで行ったら先頭へ戻して流し続ける切り替え。
+    private var repeatTrackButton: some View {
+        let on = player.repeatTrack
+        return Button {
+            player.repeatTrack.toggle()
+        } label: {
+            Image(systemName: "repeat")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(on ? Color.white : Color.secondary)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 5)
+                .background(
+                    Capsule().fill(on ? Color.accentColor : Color.secondary.opacity(0.15))
+                )
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("repeatTrack")
+        .accessibilityLabel(on ? "繰り返しを止める" : "最後まで行ったら先頭から繰り返す")
     }
 
     /// お気に入りだけを続けて流す切り替え。入れている間は目盛りも
@@ -124,15 +147,16 @@ struct PlayerView: View {
 
     // MARK: - 再生コントロール
 
-    /// 左に訳の切り替え、中央に再生、右に速度。重ねて中央ぞろえにすると
-    /// 速度の「−」が次の塊ボタンに重なるため、横一列に並べて場所を分ける。
+    /// 再生ボタンを画面の中央に置き、訳の切り替えと速度をその両脇へ寄せる。
+    /// 速度を縦に積むことで横幅を取らず、中央ぞろえのまま重ならずに済む。
     private var transportSection: some View {
-        HStack(spacing: 0) {
-            TranslationToggle()
-            Spacer(minLength: 4)
+        ZStack {
             transportButtons
-            Spacer(minLength: 4)
-            speedStepper
+            HStack {
+                TranslationToggle()
+                Spacer()
+                speedStepper
+            }
         }
     }
 
@@ -140,37 +164,37 @@ struct PlayerView: View {
     /// 押し損ねると何も起きずに閉じるだけになる。一段ずつ動かす形にして、
     /// 一度押せば必ず変わるようにした。
     private var speedStepper: some View {
-        HStack(spacing: 2) {
-            Button {
-                stepSpeed(-1)
-            } label: {
-                Image(systemName: "minus")
-                    .font(.footnote.weight(.bold))
-                    .frame(width: 26, height: 32)
-                    .contentShape(Rectangle())
-            }
-            .disabled(!canStepSpeed(-1))
-            .accessibilityIdentifier("speedDown")
-            .accessibilityLabel("速度を下げる")
-
-            Text(SpeedFormatter.label(for: player.speed))
-                .font(.system(size: 16, weight: .semibold))
-                .monospacedDigit()
-                .frame(minWidth: 42)
-                .accessibilityIdentifier("speed")
-                .accessibilityLabel("再生速度 \(SpeedFormatter.label(for: player.speed))")
-
+        VStack(spacing: 0) {
             Button {
                 stepSpeed(1)
             } label: {
                 Image(systemName: "plus")
                     .font(.footnote.weight(.bold))
-                    .frame(width: 26, height: 32)
+                    .frame(width: 48, height: 26)
                     .contentShape(Rectangle())
             }
             .disabled(!canStepSpeed(1))
             .accessibilityIdentifier("speedUp")
             .accessibilityLabel("速度を上げる")
+
+            Text(SpeedFormatter.label(for: player.speed))
+                .font(.system(size: 16, weight: .semibold))
+                .monospacedDigit()
+                .frame(width: 48)
+                .accessibilityIdentifier("speed")
+                .accessibilityLabel("再生速度 \(SpeedFormatter.label(for: player.speed))")
+
+            Button {
+                stepSpeed(-1)
+            } label: {
+                Image(systemName: "minus")
+                    .font(.footnote.weight(.bold))
+                    .frame(width: 48, height: 26)
+                    .contentShape(Rectangle())
+            }
+            .disabled(!canStepSpeed(-1))
+            .accessibilityIdentifier("speedDown")
+            .accessibilityLabel("速度を下げる")
         }
         .foregroundStyle(.tint)
     }
