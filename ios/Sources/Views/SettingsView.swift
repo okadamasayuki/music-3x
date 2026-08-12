@@ -74,50 +74,12 @@ struct SettingsView: View {
             }
             .accessibilityIdentifier("voiceControl")
 
-            if settings.voiceControl {
-                if let problem = voice.problem {
-                    Text(problem)
-                        .font(.footnote)
-                        .foregroundStyle(.red)
-                } else {
-                    HStack {
-                        Text(voice.isListening
-                             ? (voice.echoCancelled ? "聞いています" : "聞いています(再生音を拾います)")
-                             : "準備中")
-                            .font(.footnote)
-                            .foregroundStyle(voice.isListening
-                                             ? (voice.echoCancelled ? Color.green : Color.orange)
-                                             : Color.secondary)
-                        Spacer()
-                        Text(voice.lastHeard)
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                            .truncationMode(.head)
-                            .accessibilityIdentifier("voiceHeard")
-                    }
-                    if !voice.lastMatched.isEmpty {
-                        HStack {
-                            Text(voice.lastMatchedBecameLearned ? "直前に付けた印" : "直前に外した印")
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
-                            Spacer()
-                            Text(voice.lastMatchedHeardAs == voice.lastMatched
-                                 ? voice.lastMatched
-                                 : "\(voice.lastMatched) ←「\(voice.lastMatchedHeardAs)」")
-                                .font(.footnote.weight(.semibold))
-                                .foregroundStyle(voice.lastMatchedBecameLearned
-                                                 ? Color.accentColor : Color.secondary)
-                                .lineLimit(1)
-                                .accessibilityIdentifier("voiceMatched")
-                        }
-                    }
-                }
-                Text("英単語を声に出すと、その単語の覚えた印が入れ替わります。"
-                     + "付いていなければ付き、付いていれば外れます。"
-                     + "同じ語が何か所にも出てくる場合は、どれか決められないので反応しません。")
+            // 聞き取りの様子と説明はプレイヤー画面に出しているので、ここには置かない。
+            // 許可が下りていないときだけ、理由が分からないと直しようがないので出す。
+            if settings.voiceControl, let problem = voice.problem {
+                Text(problem)
                     .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.red)
             }
         }
     }
