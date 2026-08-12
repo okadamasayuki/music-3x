@@ -92,21 +92,46 @@ struct RootView: View {
         TabView(selection: $selectedTab) {
             NavigationStack {
                 LibraryView(onOpen: { open(.player($0)) })
+                    .safeAreaInset(edge: .bottom) { miniPlayer }
             }
             .tabItem { Label("ライブラリ", systemImage: "music.note.list") }
             .tag(Tab.library)
 
             NavigationStack {
                 PhraseListView(onOpen: { open(.phrases($0)) })
+                    .safeAreaInset(edge: .bottom) { miniPlayer }
             }
             .tabItem { Label("フレーズ", systemImage: "checklist") }
             .tag(Tab.phrases)
 
             NavigationStack {
                 SettingsView()
+                    .safeAreaInset(edge: .bottom) { miniPlayer }
             }
             .tabItem { Label("設定", systemImage: "gearshape") }
             .tag(Tab.settings)
+        }
+    }
+
+    /// 今かかっている音源。プレイヤー画面を閉じても操作を残すために使う。
+    private var playingTrack: Track? {
+        player.currentTrackID.flatMap { id in library.tracks.first { $0.id == id } }
+    }
+
+    /// タブの帯のすぐ上に出す小さい操作板。
+    /// 画面を離れても鳴り続けるので、止める・戻るための手がかりを残しておく。
+    @ViewBuilder
+    private var miniPlayer: some View {
+        if opened == nil, let track = playingTrack {
+            MiniPlayerBar(
+                title: track.displayName,
+                isPlaying: player.isPlaying,
+                progress: player.effectiveDuration > 0
+                    ? player.effectiveTime(for: player.currentTime) / player.effectiveDuration
+                    : 0,
+                onOpen: { open(.player(track.id)) },
+                onToggle: { player.togglePlayPause() }
+            )
         }
     }
 
@@ -136,5 +161,63 @@ struct RootView: View {
         // 速度の操作はプレイヤー画面から外したので、設定を変えたら再生中でもすぐ反映する
         player.speed = settings.defaultSpeed
         player.showsTranslation = settings.showTranslation
+    }
+}
+
+/// タブの帯のすぐ上に出す、小さい再生操作板。
+/// 帯を押すとプレイヤー画面へ戻り、右端のボタンで止め直せる。
+private struct MiniPlayerBar: View {
+    let title: String
+    let isPlaying: Bool
+    /// 0〜1。細い線で今どのあたりかを示す。
+    let progress: Double
+    var onOpen: () -> Void
+    var onToggle: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "music.note")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(.tint)
+                .frame(width: 22)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.subheadline.weight(.medium))
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                // 目盛りは細い線だけにする。数字まで出すと帯が厚くなる。
+                GeometryReader { proxy in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(Color.secondary.opacity(0.2))
+                        Capsule().fill(Color.accentColor)
+                            .frame(width: proxy.size.width * min(max(progress, 0), 1))
+                    }
+                }
+                .frame(height: 2)
+            }
+
+            Button(action: onToggle) {
+                Image(systemName: isPlaying ? "pause.fill" : "play.fill")
+                    .font(.title3)
+                    .foregroundStyle(.tint)
+                    .frame(width: 40, height: 40)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("miniPlayerToggle")
+            .accessibilityLabel(isPlaying ? "一時停止" : "再生")
+        }
+        .padding(.leading, 14)
+        .padding(.trailing, 4)
+        .padding(.vertical, 6)
+        .background(.bar)
+        .overlay(alignment: .top) { Divider() }
+        .contentShape(Rectangle())
+        .onTapGesture(perform: onOpen)
+        // 中の再生ボタンを外から押せるよう、ひとまとめにはしない
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("miniPlayer")
+        .accessibilityLabel("再生中: \(title)")
     }
 }

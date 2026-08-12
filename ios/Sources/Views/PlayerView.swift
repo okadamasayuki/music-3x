@@ -13,6 +13,14 @@ struct PlayerView: View {
     @State private var scrubValue: Double = 0
     @State private var isScrubbing = false
 
+    /// 別の音源が鳴っている間に開いたときの、下読み用の字幕。
+    /// 音を止めずに中身だけ見られるよう、再生機とは別に読み込む。
+    @State private var previewCues: [SubtitleCue] = []
+    @State private var previewGroups: [SubtitleGroup] = []
+
+    /// この画面の音源が、いま再生機に載っているか。
+    private var isLive: Bool { player.currentTrackID == track.id }
+
     /// ライブラリ側が更新される(字幕を後から足す等)ので、常に最新を引き直す。
     private var liveTrack: Track {
         library.tracks.first(where: { $0.id == track.id }) ?? track
@@ -20,26 +28,36 @@ struct PlayerView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            TranscriptView(onToggleLearned: setLearned, onToggleFavorite: setFavorite)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                // 戻る操作は字幕の領域だけで受ける。下の操作部に付けると、
-                // 再生位置のスライダーを横に動かしただけで戻ってしまう。
-                .backSwipe(onChanged: onBackDragChanged, onEnded: onBackDragEnded)
-                // 上端の字幕が時刻表示と重なって読みにくいので、そこだけ薄く消す
-                .mask(
-                    LinearGradient(
-                        stops: [
-                            .init(color: .clear, location: 0),
-                            .init(color: .black, location: 0.045),
-                            .init(color: .black, location: 1),
-                        ],
-                        startPoint: .top, endPoint: .bottom
-                    )
+            Group {
+                if isLive {
+                    TranscriptView(onToggleLearned: setLearned, onToggleFavorite: setFavorite)
+                } else {
+                    previewList
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // 戻る操作は字幕の領域だけで受ける。下の操作部に付けると、
+            // 再生位置のスライダーを横に動かしただけで戻ってしまう。
+            .backSwipe(onChanged: onBackDragChanged, onEnded: onBackDragEnded)
+            // 上端の字幕が時刻表示と重なって読みにくいので、そこだけ薄く消す
+            .mask(
+                LinearGradient(
+                    stops: [
+                        .init(color: .clear, location: 0),
+                        .init(color: .black, location: 0.045),
+                        .init(color: .black, location: 1),
+                    ],
+                    startPoint: .top, endPoint: .bottom
                 )
+            )
 
             VStack(spacing: 10) {
-                seekSection
-                transportSection
+                if isLive {
+                    seekSection
+                    transportSection
+                } else {
+                    switchSection
+                }
             }
             .padding(.horizontal, 20)
             .padding(.top, 10)
@@ -47,6 +65,51 @@ struct PlayerView: View {
             .background(.bar)
         }
         .onAppear(perform: loadIfNeeded)
+    }
+
+    // MARK: - 別の音源が鳴っている間の下読み
+
+    /// 音を止めずに中身だけ並べる。印は付けられない(再生機を通さないため)ので、
+    /// 印を付けたいときはフレーズタブを使う。
+    private var previewList: some View {
+        List {
+            ForEach(previewGroups) { group in
+                let lines = group.lines(in: previewCues)
+                VStack(alignment: .leading, spacing: 2) {
+                    ForEach(Array(lines.enumerated()), id: \.element.id) { index, line in
+                        Text(line.text)
+                            .font(index == 0 ? .body : .subheadline)
+                            .foregroundStyle(index == 0 ? Color.primary : Color.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+                .dynamicTypeSize(settings.textSize)
+                .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+            }
+        }
+        .listStyle(.plain)
+        .accessibilityIdentifier("previewList")
+    }
+
+    /// この音源へ切り替えるための操作部。押すまでは今かかっている音を止めない。
+    private var switchSection: some View {
+        VStack(spacing: 8) {
+            Text("別の音源が再生中です")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            Button {
+                switchToThisTrack()
+            } label: {
+                Label("この音源を再生", systemImage: "play.fill")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+            }
+            .buttonStyle(.borderedProminent)
+            .accessibilityIdentifier("switchToTrack")
+        }
+        .padding(.bottom, 4)
     }
 
     // MARK: - シーク
@@ -271,7 +334,26 @@ struct PlayerView: View {
     }
 
     private func loadIfNeeded() {
-        guard player.currentTrackID != track.id else { return }
+        guard !isLive else { return }
+        // 鳴っている最中に別の音源を開いても、音は止めない。中身だけ読んで並べ、
+        // 切り替えるかどうかは「この音源を再生」を押したときに決める。
+        if player.isPlaying {
+            loadPreview()
+            return
+        }
+        loadIntoPlayer()
+    }
+
+    private func loadPreview() {
+        guard previewGroups.isEmpty else { return }
+        guard let url = library.subtitleURL(for: liveTrack) else { return }
+        let content = (try? String(contentsOf: url, encoding: .utf8))
+            ?? (try? String(contentsOf: url, encoding: .shiftJIS)) ?? ""
+        previewCues = SubtitleParser.parse(content)
+        previewGroups = previewCues.grouped()
+    }
+
+    private func loadIntoPlayer() {
         let current = liveTrack
         player.load(
             audioURL: library.audioURL(for: current),
@@ -283,5 +365,13 @@ struct PlayerView: View {
         player.applyLearned(library.learnedGroups(for: current.id, cueCount: player.cues.count))
         player.applyFavorites(library.favoriteGroups(for: current.id, cueCount: player.cues.count))
         player.speed = settings.defaultSpeed
+    }
+
+    /// 下読みしていた音源へ切り替えて鳴らし始める。
+    private func switchToThisTrack() {
+        loadIntoPlayer()
+        previewCues = []
+        previewGroups = []
+        player.play()
     }
 }
