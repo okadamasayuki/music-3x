@@ -7,13 +7,25 @@ struct RootView: View {
 
     private enum Tab: Hashable { case library, phrases, settings }
 
+    /// 帯より手前に重ねる画面。どちらもタブの帯まで覆う。
+    private enum Opened: Equatable {
+        case player(UUID)
+        case phrases(UUID)
+
+        var trackID: UUID {
+            switch self {
+            case .player(let id), .phrases(let id): return id
+            }
+        }
+    }
+
     @State private var selectedTab: Tab = .library
-    @State private var openedTrackID: UUID?
-    /// 再生画面を右へずらしている量。0 なら開いた状態。
+    @State private var opened: Opened?
+    /// 手前の画面を右へずらしている量。0 なら開いた状態。
     @State private var dragX: CGFloat = 0
 
     private var openedTrack: Track? {
-        openedTrackID.flatMap { id in library.tracks.first(where: { $0.id == id }) }
+        opened.flatMap { o in library.tracks.first(where: { $0.id == o.trackID }) }
     }
 
     var body: some View {
@@ -33,16 +45,28 @@ struct RootView: View {
                             .allowsHitTesting(false)
                     )
 
-                // 再生画面はタブより手前に重ねる。タブの帯まで覆うことで、
-                // 字幕に使える範囲が広がる。
-                if let track = openedTrack {
-                    PlayerView(
-                        track: track,
-                        onBackDragChanged: { dragX = max(0, $0) },
-                        onBackDragEnded: { translation, predicted in
-                            finish(translation: translation, predicted: predicted, width: width)
+                // タブより手前に重ねる。帯まで覆うことで、字幕に使える範囲が広がる。
+                if let opened, let track = openedTrack {
+                    Group {
+                        switch opened {
+                        case .player:
+                            PlayerView(
+                                track: track,
+                                onBackDragChanged: { dragX = max(0, $0) },
+                                onBackDragEnded: { translation, predicted in
+                                    finish(translation: translation, predicted: predicted, width: width)
+                                }
+                            )
+                        case .phrases:
+                            PhraseDetailView(
+                                track: track,
+                                onBackDragChanged: { dragX = max(0, $0) },
+                                onBackDragEnded: { translation, predicted in
+                                    finish(translation: translation, predicted: predicted, width: width)
+                                }
+                            )
                         }
-                    )
+                    }
                     .background(Color(.systemBackground).ignoresSafeArea())
                     .offset(x: dragX)
                     .shadow(color: .black.opacity(0.3), radius: 12, x: -6)
@@ -67,13 +91,13 @@ struct RootView: View {
     private var tabs: some View {
         TabView(selection: $selectedTab) {
             NavigationStack {
-                LibraryView(onOpen: open)
+                LibraryView(onOpen: { open(.player($0)) })
             }
             .tabItem { Label("ライブラリ", systemImage: "music.note.list") }
             .tag(Tab.library)
 
             NavigationStack {
-                PhraseListView()
+                PhraseListView(onOpen: { open(.phrases($0)) })
             }
             .tabItem { Label("フレーズ", systemImage: "checklist") }
             .tag(Tab.phrases)
@@ -86,9 +110,9 @@ struct RootView: View {
         }
     }
 
-    private func open(_ id: UUID) {
+    private func open(_ target: Opened) {
         dragX = 0
-        withAnimation(.easeOut(duration: 0.28)) { openedTrackID = id }
+        withAnimation(.easeOut(duration: 0.28)) { opened = target }
     }
 
     /// 指を離したとき、戻しきるか元へ返すかを決める。
@@ -98,7 +122,7 @@ struct RootView: View {
             withAnimation(.easeOut(duration: 0.22)) { dragX = width }
             // ずれきってから実体を外す。先に外すと画面が一瞬飛んで見える。
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                openedTrackID = nil
+                opened = nil
                 dragX = 0
             }
         } else {

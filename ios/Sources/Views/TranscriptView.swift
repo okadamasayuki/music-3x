@@ -8,6 +8,8 @@ struct TranscriptView: View {
 
     /// 覚えた印の変更を保存するために呼び出し側へ渡す
     var onToggleLearned: (Int, Bool) -> Void
+    /// お気に入りの変更も同じく呼び出し側で保存する
+    var onToggleFavorite: (Int, Bool) -> Void
 
     @State private var isFollowing = true
 
@@ -32,6 +34,7 @@ struct TranscriptView: View {
                                 // 項目が再生中なら、英文も訳もまとめて強調する
                                 isPlaying: isPlaying(group),
                                 isLearned: player.learnedGroups.contains(group.id),
+                                isFavorite: player.favoriteGroups.contains(group.id),
                                 onPlayLine: { line in
                                     guard let first = line.cueIndices.first,
                                           player.cues.indices.contains(first) else { return }
@@ -40,6 +43,9 @@ struct TranscriptView: View {
                                 },
                                 onToggleLearned: {
                                     onToggleLearned(group.id, !player.learnedGroups.contains(group.id))
+                                },
+                                onToggleFavorite: {
+                                    onToggleFavorite(group.id, !player.favoriteGroups.contains(group.id))
                                 }
                             )
                             .id(group.id)
@@ -125,8 +131,10 @@ private struct GroupBlock: View {
     let lines: [TranscriptLine]
     let isPlaying: Bool
     let isLearned: Bool
+    let isFavorite: Bool
     let onPlayLine: (TranscriptLine) -> Void
     let onToggleLearned: () -> Void
+    let onToggleFavorite: () -> Void
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
@@ -146,8 +154,19 @@ private struct GroupBlock: View {
                     CueRow(text: line.text, isCurrent: isPlaying, onPlay: { onPlayLine(line) })
                 }
             }
+            .opacity(isLearned ? 0.4 : 1)
+
+            Button(action: onToggleFavorite) {
+                Image(systemName: isFavorite ? "star.fill" : "star")
+                    .font(.subheadline)
+                    .foregroundStyle(isFavorite ? Color.yellow : Color.secondary.opacity(0.3))
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 3)
+            .accessibilityLabel(isFavorite
+                ? "\(group.id + 1) 番目の項目をお気に入りから外す"
+                : "\(group.id + 1) 番目の項目をお気に入りに入れる")
         }
-        .opacity(isLearned ? 0.4 : 1)
         .padding(.vertical, 3)
         .background(
             RoundedRectangle(cornerRadius: 8, style: .continuous)

@@ -3,6 +3,9 @@ import SwiftUI
 /// 音源を選んでからフレーズを見る。ライブラリと同じ並びにしておくと、
 /// どの教材の分を見ているのか迷わない。
 struct PhraseListView: View {
+    /// フレーズ一覧を開く操作。画面の重なりは呼び出し側が持つ。
+    var onOpen: (UUID) -> Void
+
     @EnvironmentObject private var library: LibraryStore
 
     var body: some View {
@@ -11,21 +14,31 @@ struct PhraseListView: View {
                 emptyState
             } else {
                 List {
+                    // ライブラリと同じく、音源ごとに枠を分ける
                     ForEach(library.tracks) { track in
-                        NavigationLink(value: track.id) {
-                            Text(track.displayName)
-                                .font(.body)
-                                .lineLimit(2)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.vertical, 14)
+                        Section {
+                            Button {
+                                onOpen(track.id)
+                            } label: {
+                                HStack(spacing: 8) {
+                                    Text(track.displayName)
+                                        .font(.body)
+                                        .lineLimit(2)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .padding(.vertical, 14)
+                                    Image(systemName: "chevron.right")
+                                        .font(.footnote.weight(.semibold))
+                                        .foregroundStyle(.tertiary)
+                                }
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityIdentifier("trackRow")
+                            .accessibilityLabel(track.displayName)
                         }
                     }
                 }
-                .navigationDestination(for: UUID.self) { id in
-                    if let track = library.tracks.first(where: { $0.id == id }) {
-                        PhraseDetailView(track: track)
-                    }
-                }
+                .listStyle(.insetGrouped)
             }
         }
         .navigationTitle("フレーズ")
@@ -48,30 +61,27 @@ struct PhraseListView: View {
     }
 }
 
-/// 音声を鳴らさずに、フレーズを見ながら覚えた印を付けるための画面。
+/// 音声を鳴らさずに、フレーズを見ながら印を付けるための画面。
 /// 再生中かどうかに関わらず開けるよう、字幕はここで読み込む。
 struct PhraseDetailView: View {
     let track: Track
+    /// 戻るなぞり操作の進み具合。重なりを管理している側へ渡す。
+    var onBackDragChanged: (CGFloat) -> Void = { _ in }
+    var onBackDragEnded: (CGFloat, CGFloat) -> Void = { _, _ in }
 
     @EnvironmentObject private var library: LibraryStore
     @EnvironmentObject private var player: PlayerEngine
     @EnvironmentObject private var settings: AppSettings
 
     private enum Filter: String, CaseIterable, Identifiable {
-        case all, unlearned, learned
+        case all, unlearned, learned, favorite
         var id: String { rawValue }
-        var label: String {
-            switch self {
-            case .all: return "すべて"
-            case .unlearned: return "未習"
-            case .learned: return "習得済み"
-            }
-        }
     }
 
     @State private var cues: [SubtitleCue] = []
     @State private var allGroups: [SubtitleGroup] = []
     @State private var learned: Set<Int> = []
+    @State private var favorites: Set<Int> = []
     @State private var filter: Filter = .all
 
     private var groups: [SubtitleGroup] {
@@ -79,6 +89,7 @@ struct PhraseDetailView: View {
         case .all: return allGroups
         case .unlearned: return allGroups.filter { !learned.contains($0.id) }
         case .learned: return allGroups.filter { learned.contains($0.id) }
+        case .favorite: return allGroups.filter { favorites.contains($0.id) }
         }
     }
 
@@ -95,25 +106,31 @@ struct PhraseDetailView: View {
                         List {
                             ForEach(groups) { group in
                                 row(for: group)
-                                    .listRowInsets(EdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 16))
+                                    .listRowInsets(EdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 12))
                             }
                         }
                         .listStyle(.plain)
+                        // 一覧の上を右へなぞると音源の一覧へ戻る
+                        .backSwipe(onChanged: onBackDragChanged, onEnded: onBackDragEnded)
                     }
                 }
             }
         }
-        .navigationTitle(track.displayName)
-        .navigationBarTitleDisplayMode(.inline)
         .onAppear(perform: load)
     }
 
     private var header: some View {
         VStack(spacing: 10) {
-            HStack(spacing: 10) {
+            HStack(spacing: 12) {
                 Text("\(learned.count) / \(allGroups.count)")
                     .font(.subheadline.monospacedDigit())
                     .foregroundStyle(.secondary)
+                if !favorites.isEmpty {
+                    Label("\(favorites.count)", systemImage: "star.fill")
+                        .font(.subheadline.monospacedDigit())
+                        .foregroundStyle(.yellow)
+                        .labelStyle(.titleAndIcon)
+                }
                 Spacer()
                 TranslationToggle()
             }
@@ -122,45 +139,63 @@ struct PhraseDetailView: View {
                 .tint(.accentColor)
 
             Picker("表示", selection: $filter) {
-                ForEach(Filter.allCases) { f in Text(f.label).tag(f) }
+                Text("すべて").tag(Filter.all)
+                Text("未習").tag(Filter.unlearned)
+                Text("習得済み").tag(Filter.learned)
+                Image(systemName: "star.fill").tag(Filter.favorite)
             }
             .pickerStyle(.segmented)
         }
         .padding(.horizontal, 16)
-        .padding(.top, 10)
+        .padding(.top, 6)
         .padding(.bottom, 12)
         .background(.bar)
+        // 題名の帯を出していないので、ここでも戻る操作を受ける
+        .backSwipe(onChanged: onBackDragChanged, onEnded: onBackDragEnded)
     }
 
     private func row(for group: SubtitleGroup) -> some View {
         let isLearned = learned.contains(group.id)
+        let isFavorite = favorites.contains(group.id)
         let lines = displayLines(of: group)
 
-        return Button {
-            setLearned(group.id, !isLearned)
-        } label: {
-            HStack(alignment: .top, spacing: 12) {
+        return HStack(alignment: .top, spacing: 10) {
+            Button {
+                setLearned(group.id, !isLearned)
+            } label: {
                 Image(systemName: isLearned ? "checkmark.circle.fill" : "circle")
                     .font(.title3)
                     .foregroundStyle(isLearned ? Color.accentColor : Color.secondary.opacity(0.5))
                     .padding(.top, 1)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    ForEach(Array(lines.enumerated()), id: \.element.id) { index, line in
-                        Text(line.text)
-                            .font(index == 0 ? .body : .subheadline)
-                            .foregroundStyle(index == 0 ? Color.primary : Color.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                }
-                .opacity(isLearned ? 0.45 : 1)
+                    .contentShape(Rectangle())
             }
-            .contentShape(Rectangle())
+            .buttonStyle(.plain)
+            .accessibilityLabel(isLearned ? "覚えた印を外す" : "覚えた印を付ける")
+
+            VStack(alignment: .leading, spacing: 2) {
+                ForEach(Array(lines.enumerated()), id: \.element.id) { index, line in
+                    Text(line.text)
+                        .font(index == 0 ? .body : .subheadline)
+                        .foregroundStyle(index == 0 ? Color.primary : Color.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            .opacity(isLearned ? 0.45 : 1)
+
+            Button {
+                setFavorite(group.id, !isFavorite)
+            } label: {
+                Image(systemName: isFavorite ? "star.fill" : "star")
+                    .font(.subheadline)
+                    .foregroundStyle(isFavorite ? Color.yellow : Color.secondary.opacity(0.35))
+                    .padding(.top, 3)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(isFavorite ? "お気に入りから外す" : "お気に入りに入れる")
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(lines.first?.text ?? "")
-        .accessibilityValue(isLearned ? "覚えた" : "未習")
+        .accessibilityElement(children: .contain)
     }
 
     private func displayLines(of group: SubtitleGroup) -> [TranscriptLine] {
@@ -179,6 +214,7 @@ struct PhraseDetailView: View {
         cues = SubtitleParser.parse(content)
         allGroups = cues.grouped()
         learned = library.learnedGroups(for: track.id, cueCount: cues.count)
+        favorites = library.favoriteGroups(for: track.id, cueCount: cues.count)
     }
 
     private func setLearned(_ group: Int, _ value: Bool) {
@@ -187,6 +223,14 @@ struct PhraseDetailView: View {
         // 同じ音源を再生中なら、そちらの表示にも即座に反映する
         if player.currentTrackID == track.id {
             player.setLearned(value, group: group)
+        }
+    }
+
+    private func setFavorite(_ group: Int, _ value: Bool) {
+        if value { favorites.insert(group) } else { favorites.remove(group) }
+        library.setFavorite(value, group: group, cueCount: cues.count, for: track.id)
+        if player.currentTrackID == track.id {
+            player.setFavorite(value, group: group)
         }
     }
 
@@ -205,19 +249,38 @@ struct PhraseDetailView: View {
                 .multilineTextAlignment(.center)
         }
         .padding(40)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .backSwipe(onChanged: onBackDragChanged, onEnded: onBackDragEnded)
     }
 
     private var emptyForFilter: some View {
         VStack(spacing: 10) {
-            Image(systemName: filter == .learned ? "circle" : "checkmark.circle")
+            Image(systemName: emptyIcon)
                 .font(.system(size: 36))
                 .foregroundStyle(.tint)
-            Text(filter == .learned ? "覚えた印を付けた項目はまだありません"
-                                    : "すべて覚えた印が付いています")
+            Text(emptyMessage)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(40)
+        .backSwipe(onChanged: onBackDragChanged, onEnded: onBackDragEnded)
+    }
+
+    private var emptyIcon: String {
+        switch filter {
+        case .favorite: return "star"
+        case .learned: return "circle"
+        default: return "checkmark.circle"
+        }
+    }
+
+    private var emptyMessage: String {
+        switch filter {
+        case .favorite: return "お気に入りはまだありません。\n右端の星を押すと入ります。"
+        case .learned: return "覚えた印を付けた項目はまだありません"
+        default: return "すべて覚えた印が付いています"
+        }
     }
 }

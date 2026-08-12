@@ -12,31 +12,6 @@ struct PlayerView: View {
 
     @State private var scrubValue: Double = 0
     @State private var isScrubbing = false
-    /// 横向きの動きだと見極めがついたか。ついてから追従を始める。
-    @State private var isDraggingBack = false
-
-    /// 字幕の上を右へなぞると一覧へ戻る。
-    /// 縦スクロールと取り合わないよう、横の動きが縦を上回ったときだけ追従する。
-    private var backSwipe: some Gesture {
-        // 画面自身をずらすので、移動量は画面に依存しない基準で測る。
-        // 既定のまま(動く画面が基準)だと、ずらす→測り直すの繰り返しで震える。
-        DragGesture(minimumDistance: 12, coordinateSpace: .global)
-            .onChanged { value in
-                let horizontal = value.translation.width
-                let vertical = abs(value.translation.height)
-                if !isDraggingBack {
-                    guard horizontal > 12, horizontal > vertical * 1.4 else { return }
-                    isDraggingBack = true
-                }
-                onBackDragChanged(max(0, horizontal))
-            }
-            .onEnded { value in
-                guard isDraggingBack else { return }
-                isDraggingBack = false
-                onBackDragEnded(max(0, value.translation.width),
-                                max(0, value.predictedEndTranslation.width))
-            }
-    }
 
     /// ライブラリ側が更新される(字幕を後から足す等)ので、常に最新を引き直す。
     private var liveTrack: Track {
@@ -45,11 +20,11 @@ struct PlayerView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            TranscriptView(onToggleLearned: setLearned)
+            TranscriptView(onToggleLearned: setLearned, onToggleFavorite: setFavorite)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 // 戻る操作は字幕の領域だけで受ける。下の操作部に付けると、
                 // 再生位置のスライダーを横に動かしただけで戻ってしまう。
-                .simultaneousGesture(backSwipe)
+                .backSwipe(onChanged: onBackDragChanged, onEnded: onBackDragEnded)
                 // 上端の字幕が時刻表示と重なって読みにくいので、そこだけ薄く消す
                 .mask(
                     LinearGradient(
@@ -107,13 +82,45 @@ struct PlayerView: View {
             HStack {
                 Text(TimeFormatter.string(from: displayedTime))
                     .accessibilityIdentifier("elapsed")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                Spacer()
+                favoriteRepeatButton
                 Spacer()
                 Text(TimeFormatter.string(from: player.effectiveDuration))
                     .accessibilityIdentifier("duration")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
             }
-            .font(.caption.monospacedDigit())
-            .foregroundStyle(.secondary)
         }
+    }
+
+    /// お気に入りだけを続けて流す切り替え。入れている間は目盛りも
+    /// お気に入りの合計に変わるので、残りがひと目で分かる。
+    private var favoriteRepeatButton: some View {
+        let count = player.favoriteGroups.count
+        let on = player.repeatFavorites
+        return Button {
+            player.repeatFavorites.toggle()
+            if player.repeatFavorites { player.play() }
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: on ? "repeat" : "star")
+                Text(count == 0 ? "お気に入り" : "お気に入り \(count)")
+            }
+            .font(.caption.weight(on ? .semibold : .regular))
+            .foregroundStyle(on ? Color.white : Color.secondary)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+            .background(
+                Capsule().fill(on ? Color.accentColor : Color.secondary.opacity(0.15))
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(count == 0)
+        .opacity(count == 0 ? 0.4 : 1)
+        .accessibilityIdentifier("repeatFavorites")
+        .accessibilityLabel(on ? "お気に入りの繰り返しを止める" : "お気に入りだけを繰り返す")
     }
 
     // MARK: - 再生コントロール
@@ -199,6 +206,11 @@ struct PlayerView: View {
         library.setLearned(learned, group: group, cueCount: player.cues.count, for: track.id)
     }
 
+    private func setFavorite(_ group: Int, _ favorite: Bool) {
+        player.setFavorite(favorite, group: group)
+        library.setFavorite(favorite, group: group, cueCount: player.cues.count, for: track.id)
+    }
+
     private func loadIfNeeded() {
         guard player.currentTrackID != track.id else { return }
         let current = liveTrack
@@ -210,6 +222,7 @@ struct PlayerView: View {
             startAt: current.lastPosition
         )
         player.applyLearned(library.learnedGroups(for: current.id, cueCount: player.cues.count))
+        player.applyFavorites(library.favoriteGroups(for: current.id, cueCount: player.cues.count))
         player.speed = settings.defaultSpeed
     }
 }

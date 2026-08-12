@@ -46,6 +46,22 @@ final class PlayerEngine: ObservableObject {
         didSet { rebuildSkippedRanges() }
     }
 
+    /// お気に入りに入れた項目。
+    @Published var favoriteGroups: Set<Int> = [] {
+        didSet { rebuildSkippedRanges() }
+    }
+
+    /// お気に入りだけを続けて流し、最後まで行ったら先頭へ戻る。
+    @Published var repeatFavorites: Bool = false {
+        didSet {
+            rebuildSkippedRanges()
+            // 入れた直後は外れた場所にいることが多いので、すぐ寄せる
+            if repeatFavorites { confineToFavoritesIfNeeded(at: currentTime) }
+        }
+    }
+
+    var hasFavorites: Bool { !favoriteRanges.isEmpty }
+
     @Published var speed: Double = 1.0 {
         didSet { applyRate() }
     }
@@ -107,6 +123,9 @@ final class PlayerEngine: ObservableObject {
         self.duration = 0
         self.isReady = false
         self.currentCueIndex = nil
+        // 音源ごとにお気に入りは別物なので、繰り返しは持ち越さない
+        self.repeatFavorites = false
+        self.favoriteGroups = []
 
         loadSubtitles(from: subtitleURL)
         observeItemStatus(item, startAt: startAt)
@@ -139,6 +158,7 @@ final class PlayerEngine: ObservableObject {
                 let seconds = item.duration.seconds
                 self.duration = seconds.isFinite ? seconds : 0
                 self.isReady = true
+                self.rebuildSkippedRanges()
                 if startAt > 0, startAt < self.duration {
                     self.seek(to: startAt)
                 }
@@ -253,6 +273,7 @@ final class PlayerEngine: ObservableObject {
             let seconds = time.seconds
             guard seconds.isFinite else { return }
             self.currentTime = seconds
+            if self.confineToFavoritesIfNeeded(at: seconds) { return }
             if self.skipLearnedIfNeeded(at: seconds) { return }
             self.updateCue(at: seconds)
             self.persistPosition()
@@ -270,8 +291,14 @@ final class PlayerEngine: ObservableObject {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            self?.pause()
-            self?.seek(to: 0)
+            guard let self else { return }
+            // お気に入りが末尾で終わる場合はここに来る。止めずに先頭へ返す。
+            if self.repeatFavorites, self.confineToFavoritesIfNeeded(at: self.duration) {
+                self.play()
+                return
+            }
+            self.pause()
+            self.seek(to: 0)
         }
         notificationTokens.append(endToken)
     }
@@ -331,7 +358,7 @@ final class PlayerEngine: ObservableObject {
     /// 送った場合は true を返し、この回の更新処理を打ち切る。
     @discardableResult
     private func skipLearnedIfNeeded(at time: Double) -> Bool {
-        guard skipLearned, !learnedGroups.isEmpty, !groups.isEmpty else { return false }
+        guard skipLearned, !repeatFavorites, !learnedGroups.isEmpty, !groups.isEmpty else { return false }
 
         // 位置の確認は一定間隔で行うため、入ってから気づくと、その間の音が
         // 途切れて鳴ってしまう。少し先を見て、入る前に飛ばす。
@@ -372,25 +399,74 @@ final class PlayerEngine: ObservableObject {
     private var skippedRanges: [(start: Double, end: Double)] = []
 
     private func rebuildSkippedRanges() {
-        guard skipLearned else {
+        favoriteRanges = merged(of: favoriteGroups)
+
+        if repeatFavorites, !favoriteRanges.isEmpty {
+            // お気に入り以外はすべて飛ばす。目盛りもお気に入りの合計だけになる。
+            var gaps: [(start: Double, end: Double)] = []
+            var cursor = 0.0
+            for r in favoriteRanges {
+                if r.start > cursor { gaps.append((cursor, r.start)) }
+                cursor = max(cursor, r.end)
+            }
+            // 長さがまだ分からない間は末尾を足せない。分かった時点で組み直す。
+            if duration > cursor { gaps.append((cursor, duration)) }
+            skippedRanges = gaps
+        } else if skipLearned {
+            skippedRanges = merged(of: learnedGroups)
+        } else {
             skippedRanges = []
-            skippedDuration = 0
-            return
         }
-        let sorted = learnedGroups
+        skippedDuration = skippedRanges.reduce(0) { $0 + ($1.end - $1.start) }
+    }
+
+    /// 項目番号の集まりを、重なりのない時間の区間に直す。
+    private func merged(of set: Set<Int>) -> [(start: Double, end: Double)] {
+        let sorted = set
             .compactMap { groups.indices.contains($0) ? groups[$0] : nil }
             .sorted { $0.start < $1.start }
 
-        var merged: [(start: Double, end: Double)] = []
+        var result: [(start: Double, end: Double)] = []
         for g in sorted {
-            if let last = merged.last, g.start <= last.end {
-                merged[merged.count-1].end = max(last.end, g.end)
+            if let last = result.last, g.start <= last.end {
+                result[result.count-1].end = max(last.end, g.end)
             } else {
-                merged.append((g.start, g.end))
+                result.append((g.start, g.end))
             }
         }
-        skippedRanges = merged
-        skippedDuration = merged.reduce(0) { $0 + ($1.end - $1.start) }
+        return result
+    }
+
+    // MARK: - お気に入りだけを繰り返す
+
+    private var favoriteRanges: [(start: Double, end: Double)] = []
+
+    /// お気に入りから外れた場所にいたら、次のお気に入りへ送る。
+    /// 最後まで行き着いたら先頭へ戻すので、そのまま繰り返しになる。
+    @discardableResult
+    private func confineToFavoritesIfNeeded(at time: Double) -> Bool {
+        guard repeatFavorites, !favoriteRanges.isEmpty else { return false }
+
+        // 覚えた分を飛ばすときと同じく、入る手前で判断して音の途切れを防ぐ
+        let lookahead = 0.4
+        let inside = favoriteRanges.contains { time >= $0.start - lookahead && time < $0.end }
+        if inside { return false }
+
+        let next = favoriteRanges.first { $0.start > time } ?? favoriteRanges[0]
+        seek(to: next.start)
+        return true
+    }
+
+    func setFavorite(_ favorite: Bool, group: Int) {
+        if favorite {
+            favoriteGroups.insert(group)
+        } else {
+            favoriteGroups.remove(group)
+        }
+    }
+
+    func applyFavorites(_ set: Set<Int>) {
+        favoriteGroups = set
     }
 
     /// 飛ばす区間の合計。表示の更新に使うので published にしておく。
