@@ -31,8 +31,6 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 }
             }
-        } header: {
-            Text("この端末での利用")
         }
     }
 
@@ -63,8 +61,6 @@ struct SettingsView: View {
             .dynamicTypeSize(settings.textSize)
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityIdentifier("textSizeSample")
-        } header: {
-            Text("文字の大きさ: \(settings.textSizeLabel)")
         }
     }
 
@@ -92,8 +88,6 @@ struct SettingsView: View {
                 Toggle(isOn: $settings.hideLearned) {
                     Text("覚えた項目を字幕から隠す")
                 }
-            } header: {
-                Text("覚えた項目")
             }
             expirySection
         }
