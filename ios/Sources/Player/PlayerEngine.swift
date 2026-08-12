@@ -113,6 +113,10 @@ final class PlayerEngine: ObservableObject {
     // MARK: - 読み込み
 
     func load(audioURL: URL, subtitleURL: URL?, title: String, trackID: UUID, startAt: Double = 0) {
+        // AVPlayer は差し替えても rate を保つため、鳴っている最中に別の音源を
+        // 選ぶと、そのまま新しい音源が鳴り出す。選んだだけでは鳴らないよう止める。
+        player.pause()
+
         let item = AVPlayerItem(url: audioURL)
         item.audioTimePitchAlgorithm = pitchAlgorithm
         player.replaceCurrentItem(with: item)
@@ -237,8 +241,11 @@ final class PlayerEngine: ObservableObject {
     private let pitchAlgorithm: AVAudioTimePitchAlgorithm = .timeDomain
 
     private func applyRate() {
-        guard isPlaying else { return }
-        player.rate = Float(speed)
+        // rate に直接入れると、読み込みが追いつかない速さでは
+        // timeControlStatus が待ちに落ちてそのまま止まってしまう。
+        // 再生開始と同じ playImmediately を使えば、鳴らしたまま速さだけ変わる。
+        guard player.currentItem != nil, player.timeControlStatus != .paused else { return }
+        player.playImmediately(atRate: Float(speed))
         updateNowPlayingInfo()
     }
 

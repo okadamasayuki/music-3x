@@ -132,6 +132,7 @@ struct LibraryView: View {
             HStack(spacing: 8) {
                 row(for: track)
                 Spacer(minLength: 4)
+                nowPlayingMark(for: track)
                 Image(systemName: "chevron.right")
                     .font(.footnote.weight(.semibold))
                     .foregroundStyle(.tertiary)
@@ -177,11 +178,24 @@ struct LibraryView: View {
         }
     }
 
+    /// 今開いている音源だと分かる印。鳴っているか止まっているかも区別する。
+    /// 一覧に戻ったとき、どれの続きなのか探し直さずに済むようにするため。
+    @ViewBuilder
+    private func nowPlayingMark(for track: Track) -> some View {
+        if player.currentTrackID == track.id {
+            Image(systemName: player.isPlaying ? "speaker.wave.2.fill" : "pause.fill")
+                .font(.footnote)
+                .foregroundStyle(Color.accentColor)
+                .accessibilityIdentifier("nowPlayingMark")
+                .accessibilityLabel(player.isPlaying ? "再生中" : "一時停止中")
+        }
+    }
+
     private func row(for track: Track) -> some View {
         // 名前だけを出す。字幕の有無や再生位置は開けば分かるため、
         // 一覧では省いて読みやすさを優先する。
         Text(track.displayName)
-            .font(.body)
+            .font(.body.weight(player.currentTrackID == track.id ? .semibold : .regular))
             .lineLimit(2)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.vertical, 8)
