@@ -36,8 +36,44 @@ struct SettingsView: View {
         }
     }
 
+    /// 文字の大きさ。決めた結果をその場で確かめられるよう、
+    /// フレーズ一覧と同じ組み方の見本を下に添える。
+    private var textSizeSection: some View {
+        Section {
+            Slider(
+                value: Binding(
+                    get: { Double(settings.textSizeStep) },
+                    set: { settings.textSizeStep = Int($0.rounded()) }
+                ),
+                in: 0...Double(AppSettings.textSizes.count - 1),
+                step: 1,
+                label: { Text("文字の大きさ") },
+                minimumValueLabel: { Text("A").font(.system(size: 13)) },
+                maximumValueLabel: { Text("A").font(.system(size: 24)) }
+            )
+            .accessibilityIdentifier("textSizeSlider")
+
+            VStack(alignment: .leading, spacing: 0) {
+                Text("declare")
+                    .font(.body)
+                Text("を宣言する")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            .dynamicTypeSize(settings.textSize)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityIdentifier("textSizeSample")
+        } header: {
+            Text("文字の大きさ: \(settings.textSizeLabel)")
+        } footer: {
+            Text("端末の文字サイズ設定とは別に、このアプリの中だけで決められます。")
+        }
+    }
+
     var body: some View {
         Form {
+            textSizeSection
+
             Section {
                 // プレイヤー画面と同じボタンとスライダーを使う
                 SpeedPresetRow(selection: $settings.defaultSpeed)

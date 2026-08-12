@@ -31,6 +31,7 @@ struct TranscriptView: View {
                             GroupBlock(
                                 group: group,
                                 lines: displayLines(of: group),
+                                textSize: settings.textSize,
                                 // 項目が再生中なら、英文も訳もまとめて強調する
                                 isPlaying: isPlaying(group),
                                 isLearned: player.learnedGroups.contains(group.id),
@@ -129,6 +130,8 @@ private struct GroupBlock: View {
     let group: SubtitleGroup
     /// 同じ文の読み直しはまとめてあるので、1 項目でも数行しか出ない
     let lines: [TranscriptLine]
+    /// 英文と訳だけに効かせる文字の大きさ
+    let textSize: DynamicTypeSize
     let isPlaying: Bool
     let isLearned: Bool
     let isFavorite: Bool
@@ -154,6 +157,8 @@ private struct GroupBlock: View {
                     CueRow(text: line.text, isCurrent: isPlaying, onPlay: { onPlayLine(line) })
                 }
             }
+            // 大きさを変えるのは英文と訳だけ。印や操作の類はそのまま。
+            .dynamicTypeSize(textSize)
             .opacity(isLearned ? 0.4 : 1)
 
             Button(action: onToggleFavorite) {

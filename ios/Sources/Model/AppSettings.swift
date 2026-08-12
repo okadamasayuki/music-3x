@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 /// アプリ全体の設定。端末に保存し、次回起動時も引き継ぐ。
 final class AppSettings: ObservableObject {
@@ -28,9 +29,32 @@ final class AppSettings: ObservableObject {
         didSet { store.set(showTranslation, forKey: Keys.showTranslation) }
     }
 
+    /// 文字の大きさ。textSizes の何番目か。
+    /// 端末側の文字サイズ設定に引きずられず、このアプリだけで決められるようにする。
+    @Published var textSizeStep: Int {
+        didSet { store.set(textSizeStep, forKey: Keys.textSizeStep) }
+    }
+
     static let speedChoices: [Double] = [1, 1.25, 1.5, 1.75, 2, 2.5, 3, 3.5, 4]
     static let skipChoices: [Double] = [5, 10, 15, 20, 30]
     static let speedRange: ClosedRange<Double> = 0.5...4.0
+
+    /// スライダーの目盛り。端が細かすぎても使い道がないので、
+    /// 実用になる範囲だけを並べてある。
+    static let textSizes: [DynamicTypeSize] = [
+        .small, .medium, .large, .xLarge, .xxLarge, .xxxLarge, .accessibility1, .accessibility2,
+    ]
+    static let textSizeLabels = ["小", "やや小", "標準", "やや大", "大", "特大", "極大", "最大"]
+    /// 既定は標準より二段階大きい「大」。単語を並べて眺める使い方では
+    /// 端末の標準の大きさだと小さすぎるという求めによる。
+    static let defaultTextSizeStep = 4
+
+    private var clampedTextSizeStep: Int {
+        min(max(textSizeStep, 0), Self.textSizes.count - 1)
+    }
+
+    var textSize: DynamicTypeSize { Self.textSizes[clampedTextSizeStep] }
+    var textSizeLabel: String { Self.textSizeLabels[clampedTextSizeStep] }
 
     private enum Keys {
         static let defaultSpeed = "defaultSpeed"
@@ -38,6 +62,7 @@ final class AppSettings: ObservableObject {
         static let skipLearned = "skipLearned"
         static let hideLearned = "hideLearned"
         static let showTranslation = "showTranslation"
+        static let textSizeStep = "textSizeStep"
     }
 
     private let store: UserDefaults
@@ -50,6 +75,7 @@ final class AppSettings: ObservableObject {
         skipLearned = (store.object(forKey: Keys.skipLearned) as? Bool) ?? true
         hideLearned = (store.object(forKey: Keys.hideLearned) as? Bool) ?? false
         showTranslation = (store.object(forKey: Keys.showTranslation) as? Bool) ?? true
+        textSizeStep = (store.object(forKey: Keys.textSizeStep) as? Int) ?? Self.defaultTextSizeStep
     }
 
     func resetToDefaults() {
@@ -58,5 +84,6 @@ final class AppSettings: ObservableObject {
         skipLearned = true
         hideLearned = false
         showTranslation = true
+        textSizeStep = Self.defaultTextSizeStep
     }
 }

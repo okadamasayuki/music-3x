@@ -181,6 +181,8 @@ struct PhraseDetailView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
+            // 大きさを変えるのは英文と訳だけ。印や見出しまで動くと画面が崩れる。
+            .dynamicTypeSize(settings.textSize)
             .opacity(isLearned ? 0.45 : 1)
 
             Button {
