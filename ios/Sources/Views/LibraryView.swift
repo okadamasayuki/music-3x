@@ -99,10 +99,10 @@ struct LibraryView: View {
 
     private var trackList: some View {
         List {
-            // 音源ごとに枠を分ける。ひと続きの箱に並べると、
-            // どこまでが 1 件なのか切れ目が読み取りにくい。
-            ForEach(library.tracks) { track in
-                Section {
+            // ひとつの箱にまとめて並べる。音源ごとに枠を分けると、件数が
+            // 少なくても画面が余白で埋まってしまう。切れ目は区切り線で足りる。
+            Section {
+                ForEach(library.tracks) { track in
                     rowButton(for: track)
                         .contextMenu { menu(for: track) }
                         .swipeActions(edge: .trailing) {
@@ -179,12 +179,12 @@ struct LibraryView: View {
 
     private func row(for track: Track) -> some View {
         // 名前だけを出す。字幕の有無や再生位置は開けば分かるため、
-        // 一覧では省いて読みやすさを優先する。高さは従来のまま保つ。
+        // 一覧では省いて読みやすさを優先する。
         Text(track.displayName)
             .font(.body)
             .lineLimit(2)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.vertical, 14)
+            .padding(.vertical, 8)
     }
 
     // MARK: - 空の状態

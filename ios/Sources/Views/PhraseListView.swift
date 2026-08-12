@@ -14,9 +14,9 @@ struct PhraseListView: View {
                 emptyState
             } else {
                 List {
-                    // ライブラリと同じく、音源ごとに枠を分ける
-                    ForEach(library.tracks) { track in
-                        Section {
+                    // ライブラリと同じく、ひとつの箱にまとめて並べる
+                    Section {
+                        ForEach(library.tracks) { track in
                             Button {
                                 onOpen(track.id)
                             } label: {
@@ -25,7 +25,7 @@ struct PhraseListView: View {
                                         .font(.body)
                                         .lineLimit(2)
                                         .frame(maxWidth: .infinity, alignment: .leading)
-                                        .padding(.vertical, 14)
+                                        .padding(.vertical, 8)
                                     Image(systemName: "chevron.right")
                                         .font(.footnote.weight(.semibold))
                                         .foregroundStyle(.tertiary)
