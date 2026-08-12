@@ -5,9 +5,10 @@ import Speech
 
 /// 聞きながら、英単語を口に出して覚えた印を付けるための聞き役。
 ///
-/// 「覚えた」と合図を言わせる形も試したが、英語と日本語が混ざるうえ、
-/// どの項目に付いたのか分かりにくい。教材の英単語をそのまま言ってもらい、
-/// その単語の項目に印を付ける。
+/// 単語だけを言う形にしていたが、スピーカーで鳴らすと教材の声そのものを
+/// 拾って次々に印が付いた。合図の語を先に言ってもらう形に変える。
+/// 合図の語は教材に一度も出てこないものを選んであるので、教材の音が
+/// そのまま合図になることはない。
 final class VoiceCommands: NSObject, ObservableObject {
 
     /// 実際にマイクを開けているか。設定を入れても許可が下りなければ false のまま。
@@ -28,6 +29,13 @@ final class VoiceCommands: NSObject, ObservableObject {
 
     /// 言葉から項目番号を引くための表。音源が変わるたびに入れ替える。
     var vocabulary: [String: Int] = [:]
+
+    /// 単語の前に言う合図。手元の教材(単語版・例文版)のどちらにも
+    /// 一度も出てこない語だけを選んである。聞き違いで合図が生まれると
+    /// 意味がないので、こちらは綴りのゆらぎを許さない。
+    static let triggers: Set<String> = ["mark", "hey", "note", "tag"]
+    /// 画面に出す案内で使う、代表の言い方。
+    static let primaryTrigger = "mark"
 
     /// 単語を聞き取ったときに呼ぶ。渡すのは項目番号。
     /// 返すのは、その結果として覚えた印が付いたか(true)外れたか(false)。
@@ -166,12 +174,13 @@ final class VoiceCommands: NSObject, ObservableObject {
         guard !words.isEmpty else { return }
 
         // 途中経過は前の分も含めて届くので、末尾のいくつかだけを見る。
-        // 二語のつながり(per capita など)も拾えるよう、続く 2 語も試す。
-        let tail = Array(words.suffix(4))
+        // 合図の語のすぐ後ろだけを対象にする。二語のつながり(per capita など)
+        // も拾えるよう、続く 2 語のかたまりも試す。
+        let tail = Array(words.suffix(6))
         var candidates: [String] = []
-        for i in tail.indices {
-            if i + 1 < tail.count { candidates.append("\(tail[i]) \(tail[i+1])") }
-            candidates.append(tail[i])
+        for i in tail.indices where Self.triggers.contains(tail[i]) {
+            if i + 2 < tail.count { candidates.append("\(tail[i+1]) \(tail[i+2])") }
+            if i + 1 < tail.count { candidates.append(tail[i+1]) }
         }
         let fresh = candidates.filter { !lastExamined.contains($0) }
         lastExamined = candidates

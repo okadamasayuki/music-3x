@@ -135,7 +135,9 @@ struct PlayerView: View {
                     .lineLimit(1)
             } else {
                 // 聞き取った言葉は末尾を見せる。前の分は流れていくだけなので。
-                Text(voice.lastHeard.isEmpty ? "聞いています" : voice.lastHeard)
+                Text(voice.lastHeard.isEmpty
+                     ? "「\(VoiceCommands.primaryTrigger) 単語」と言ってください"
+                     : voice.lastHeard)
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
