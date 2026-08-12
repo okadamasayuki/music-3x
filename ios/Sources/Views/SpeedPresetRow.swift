@@ -7,7 +7,11 @@ enum SpeedFormatter {
         if abs(rounded - rounded.rounded()) < 0.001 {
             return "\(Int(rounded.rounded()))x"
         }
-        return String(format: "%.2gx", rounded)
+        // 有効数字で丸めると 1.25 が "1.2x"、1.75 が "1.8x" になり、
+        // 実際に鳴っている速さと表示が食い違う。小数第 2 位まで出して末尾の 0 を落とす。
+        var text = String(format: "%.2f", rounded)
+        while text.hasSuffix("0") { text.removeLast() }
+        return text + "x"
     }
 }
 

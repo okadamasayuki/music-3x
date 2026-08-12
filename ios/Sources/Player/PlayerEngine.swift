@@ -117,7 +117,7 @@ final class PlayerEngine: ObservableObject {
         // 選ぶと、そのまま新しい音源が鳴り出す。選んだだけでは鳴らないよう止める。
         player.pause()
 
-        let item = AVPlayerItem(url: audioURL)
+        let item = makeItem(for: audioURL)
         item.audioTimePitchAlgorithm = pitchAlgorithm
         player.replaceCurrentItem(with: item)
 
@@ -134,6 +134,33 @@ final class PlayerEngine: ObservableObject {
         loadSubtitles(from: subtitleURL)
         observeItemStatus(item, startAt: startAt)
         updateNowPlayingInfo()
+    }
+
+    /// 音だけを鳴らす項目を作る。
+    ///
+    /// 教材は映像付きの .mp4 で入っていることが多く、そのまま渡すと
+    /// 倍速時に映像の復号が追いつかず、音の再生ごと止まってしまう。
+    /// 画面には映像を出していないので、音のトラックだけを抜き出して鳴らす。
+    private func makeItem(for url: URL) -> AVPlayerItem {
+        let asset = AVURLAsset(url: url)
+        guard !asset.tracks(withMediaType: .video).isEmpty,
+              let source = asset.tracks(withMediaType: .audio).first
+        else { return AVPlayerItem(asset: asset) }
+
+        let composition = AVMutableComposition()
+        guard let track = composition.addMutableTrack(
+            withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid)
+        else { return AVPlayerItem(asset: asset) }
+
+        do {
+            try track.insertTimeRange(
+                CMTimeRange(start: .zero, duration: asset.duration), of: source, at: .zero)
+        } catch {
+            // 取り出せなければ元のまま鳴らす。音が出ないよりはましなため。
+            print("[PlayerEngine] 音声トラックの取り出しに失敗: \(error)")
+            return AVPlayerItem(asset: asset)
+        }
+        return AVPlayerItem(asset: composition)
     }
 
     func loadSubtitles(from url: URL?) {

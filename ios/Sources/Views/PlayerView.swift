@@ -151,10 +151,18 @@ struct PlayerView: View {
     /// 設定を開かずに変えられないと、聞きながらの調整が面倒になるため。
     private var speedLabel: some View {
         Menu {
-            // 選択形式にすると、印の欄が確保されず幅が詰まる
-            Picker("再生速度", selection: $settings.defaultSpeed) {
-                ForEach(AppSettings.speedChoices, id: \.self) { choice in
-                    Text(SpeedFormatter.label(for: choice)).tag(choice)
+            // Picker の選択を設定へ書き、設定の変化を見てプレイヤーへ渡す、という
+            // 遠回りをしていたため、選んでも速さが変わらないことがあった。
+            // 押した値をその場でプレイヤーへ入れる。
+            ForEach(AppSettings.speedChoices, id: \.self) { choice in
+                Button {
+                    apply(speed: choice)
+                } label: {
+                    if abs(player.speed - choice) < 0.001 {
+                        Label(SpeedFormatter.label(for: choice), systemImage: "checkmark")
+                    } else {
+                        Text(SpeedFormatter.label(for: choice))
+                    }
                 }
             }
         } label: {
@@ -201,6 +209,12 @@ struct PlayerView: View {
     }
 
     // MARK: - 処理
+
+    /// 鳴っている音にその場で効かせ、次に開いたときも同じ速さで始まるようにする。
+    private func apply(speed: Double) {
+        player.speed = speed
+        settings.defaultSpeed = speed
+    }
 
     private func setLearned(_ group: Int, _ learned: Bool) {
         player.setLearned(learned, group: group)
