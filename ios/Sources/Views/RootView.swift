@@ -27,6 +27,8 @@ struct RootView: View {
     @State private var dragX: CGFloat = 0
     /// 画面の横幅。開くときの初期位置(画面の外)を決めるために覚えておく。
     @State private var screenWidth: CGFloat = 0
+    /// 声で直前に切り替えた項目。言い直しで戻せるように覚えておく。
+    @State private var lastVoiceToggle: (group: Int, becameLearned: Bool)?
 
     private var openedTrack: Track? {
         opened.flatMap { o in library.tracks.first(where: { $0.id == o.trackID }) }
@@ -94,6 +96,8 @@ struct RootView: View {
             }
             applySettings()
             voice.onMatch = { group in toggleLearned(group) }
+            voice.onUndo = { undoLastToggle() }
+            voice.focusGroup = { player.activeGroupIndex ?? player.highlightedGroupIndex }
             updateVoice()
         }
         .onChange(of: settings.skipInterval) { _ in applySettings() }
@@ -221,7 +225,23 @@ struct RootView: View {
         library.setLearned(learned, group: group, cueCount: player.cues.count, for: trackID)
         // 画面を見ずに使うので、振動で返す。付けたときと外したときで手触りを変える。
         UIImpactFeedbackGenerator(style: learned ? .medium : .soft).impactOccurred()
+        lastVoiceToggle = (group, learned)
         return learned
+    }
+
+    /// 声で直前に切り替えた項目を元へ戻す。返すのは戻した単語。
+    private func undoLastToggle() -> String? {
+        guard let last = lastVoiceToggle,
+              let trackID = player.currentTrackID,
+              player.groups.indices.contains(last.group) else { return nil }
+        let back = !last.becameLearned
+        player.setLearned(back, group: last.group)
+        library.setLearned(back, group: last.group, cueCount: player.cues.count, for: trackID)
+        UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+        lastVoiceToggle = nil
+        let lines = player.groups[last.group].lines(in: player.cues)
+            .map(\.text).filter { !$0.looksLikeTranslation }
+        return lines.first ?? "直前の項目"
     }
 
     private func applySettings() {

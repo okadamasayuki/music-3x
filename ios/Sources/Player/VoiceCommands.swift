@@ -21,6 +21,8 @@ final class VoiceCommands: NSObject, ObservableObject {
     @Published private(set) var lastMatchedHeardAs = ""
     /// 直近の一言で印が付いたのか、外れたのか。画面に出し分けるために持つ。
     @Published private(set) var lastMatchedBecameLearned = true
+    /// 直前の操作が取り消しだったか。
+    @Published private(set) var lastUndone = false
     /// 許可が下りなかった場合の説明。
     @Published private(set) var problem: String?
     /// 自分の再生音をマイクから差し引けているか。切れているとスピーカーでは
@@ -36,10 +38,20 @@ final class VoiceCommands: NSObject, ObservableObject {
     static let triggers: Set<String> = ["mark", "hey", "note", "tag"]
     /// 画面に出す案内で使う、代表の言い方。
     static let primaryTrigger = "mark"
+    /// 直前の切り替えを取り消す言い方。教材に出てこないものを選んである。
+    static let undoWords: Set<String> = ["undo", "cancel", "oops", "wrong"]
+
+    /// いま聞いているあたりの項目番号。ここから離れた項目は対象にしない。
+    var focusGroup: (() -> Int?)?
+    /// どこまでさかのぼるか・先を見るか。聞いた直後に言うので、後ろを広く取る。
+    static let lookBehind = 40
+    static let lookAhead = 10
 
     /// 単語を聞き取ったときに呼ぶ。渡すのは項目番号。
     /// 返すのは、その結果として覚えた印が付いたか(true)外れたか(false)。
     var onMatch: ((Int) -> Bool)?
+    /// 直前の切り替えを取り消すときに呼ぶ。
+    var onUndo: (() -> String?)?
 
     private let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
     private let engine = AVAudioEngine()
@@ -185,12 +197,24 @@ final class VoiceCommands: NSObject, ObservableObject {
         let fresh = candidates.filter { !lastExamined.contains($0) }
         lastExamined = candidates
 
+        // 「mark undo」なら直前の切り替えを戻す
+        if fresh.contains(where: { Self.undoWords.contains($0) }) {
+            if let word = onUndo?() {
+                lastMatched = word
+                lastMatchedHeardAs = "undo"
+                lastMatchedBecameLearned = false
+                lastUndone = true
+            }
+            return
+        }
+
         for spoken in fresh {
             guard let hit = lookup(spoken), canFire(hit.group) else { continue }
             firedAt[hit.group] = Date()
             lastMatched = hit.word
             lastMatchedHeardAs = spoken
             lastMatchedBecameLearned = onMatch?(hit.group) ?? true
+            lastUndone = false
         }
     }
 
@@ -200,7 +224,15 @@ final class VoiceCommands: NSObject, ObservableObject {
     /// 語の長さに応じた範囲までのずれなら同じ語とみなす。ただし同じ距離に
     /// 複数の候補が並ぶときは決められないので諦める。
     private func lookup(_ spoken: String) -> (word: String, group: Int)? {
-        if let group = vocabulary[spoken] { return (spoken, group) }
+        // いま聞いているあたりだけを対象にする。全部を対象にすると、聞き違いが
+        // どこか遠くの語に当たり、覚えのない項目の印が変わってしまう。
+        let focus = focusGroup?()
+        func inFocus(_ group: Int) -> Bool {
+            guard let focus else { return true }
+            return group >= focus - Self.lookBehind && group <= focus + Self.lookAhead
+        }
+
+        if let group = vocabulary[spoken], inFocus(group) { return (spoken, group) }
 
         let limit = Self.allowedSlack(for: spoken)
         guard limit > 0 else { return nil }
@@ -210,6 +242,7 @@ final class VoiceCommands: NSObject, ObservableObject {
         var tiedAtBest = false
 
         for (word, group) in vocabulary {
+            guard inFocus(group) else { continue }
             // 長さが離れすぎているものは計算するまでもない
             guard abs(word.count - spoken.count) <= limit else { continue }
             let distance = Self.editDistance(spokenChars, Array(word), limit: limit)

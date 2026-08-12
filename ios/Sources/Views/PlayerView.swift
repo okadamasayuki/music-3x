@@ -147,8 +147,8 @@ struct PlayerView: View {
 
                 if !voice.lastMatched.isEmpty {
                     HStack(spacing: 4) {
-                        Image(systemName: voice.lastMatchedBecameLearned
-                              ? "checkmark.circle.fill" : "circle")
+                        Image(systemName: voice.lastUndone ? "arrow.uturn.backward"
+                              : voice.lastMatchedBecameLearned ? "checkmark.circle.fill" : "circle")
                         // 少し違って聞こえた場合は、どう化けたのかも添える
                         Text(voice.lastMatchedHeardAs == voice.lastMatched
                              ? voice.lastMatched
