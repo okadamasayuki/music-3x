@@ -81,9 +81,13 @@ struct SettingsView: View {
                         .foregroundStyle(.red)
                 } else {
                     HStack {
-                        Text(voice.isListening ? "聞いています" : "準備中")
+                        Text(voice.isListening
+                             ? (voice.echoCancelled ? "聞いています" : "聞いています(再生音を拾います)")
+                             : "準備中")
                             .font(.footnote)
-                            .foregroundStyle(voice.isListening ? Color.green : Color.secondary)
+                            .foregroundStyle(voice.isListening
+                                             ? (voice.echoCancelled ? Color.green : Color.orange)
+                                             : Color.secondary)
                         Spacer()
                         Text(voice.lastHeard)
                             .font(.footnote)

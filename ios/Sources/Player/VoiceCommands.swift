@@ -18,6 +18,9 @@ final class VoiceCommands: NSObject, ObservableObject {
     @Published private(set) var lastMatched = ""
     /// 許可が下りなかった場合の説明。
     @Published private(set) var problem: String?
+    /// 自分の再生音をマイクから差し引けているか。切れているとスピーカーでは
+    /// 教材の声を拾ってしまうので、設定画面に出して知らせる。
+    @Published private(set) var echoCancelled = false
 
     /// 言葉から項目番号を引くための表。音源が変わるたびに入れ替える。
     var vocabulary: [String: Int] = [:]
@@ -67,6 +70,11 @@ final class VoiceCommands: NSObject, ObservableObject {
             engine.stop()
             engine.inputNode.removeTap(onBus: 0)
         }
+        // 音の通り道を元に戻す。入れたままだと再生の音質が落ちる。
+        if engine.inputNode.isVoiceProcessingEnabled {
+            try? engine.inputNode.setVoiceProcessingEnabled(false)
+        }
+        echoCancelled = false
         isListening = false
         lastHeard = ""
     }
@@ -79,8 +87,12 @@ final class VoiceCommands: NSObject, ObservableObject {
         do {
             // 鳴らしながら録るので playAndRecord にする。既定のままだと
             // マイクを開けた瞬間に再生が止まる。
+            //
+            // mode は .voiceChat にする。この形でだけエコー消去が働き、
+            // スピーカーから出た教材の声をマイク入力から差し引ける。
+            // イヤホン無しで使うにはこれが要る。
             let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playAndRecord, mode: .spokenAudio,
+            try session.setCategory(.playAndRecord, mode: .voiceChat,
                                     options: [.defaultToSpeaker, .allowBluetooth, .allowBluetoothA2DP])
             try session.setActive(true)
         } catch {
@@ -95,6 +107,16 @@ final class VoiceCommands: NSObject, ObservableObject {
         self.request = request
 
         let input = engine.inputNode
+        // 自分が鳴らした音をマイク入力から差し引く。engine を動かす前に入れる。
+        if !input.isVoiceProcessingEnabled {
+            do {
+                try input.setVoiceProcessingEnabled(true)
+            } catch {
+                print("[VoiceCommands] エコー消去を入れられませんでした: \(error)")
+            }
+        }
+        echoCancelled = input.isVoiceProcessingEnabled
+
         let format = input.outputFormat(forBus: 0)
         input.removeTap(onBus: 0)
         input.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
