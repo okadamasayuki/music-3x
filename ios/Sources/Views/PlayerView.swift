@@ -101,8 +101,9 @@ struct PlayerView: View {
         let count = player.favoriteGroups.count
         let on = player.repeatFavorites
         return Button {
+            // 位置を先頭のお気に入りへ寄せるだけで、再生は始めない。
+            // 押した拍子に鳴り出すと、印を確かめたいだけのときに邪魔になる。
             player.repeatFavorites.toggle()
-            if player.repeatFavorites { player.play() }
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: on ? "repeat" : "star")
