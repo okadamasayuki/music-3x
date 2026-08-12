@@ -2,6 +2,10 @@ import SwiftUI
 
 struct PlayerView: View {
     let track: Track
+    /// 今かかっている項目の字幕。別の音源を開いている間、小さい操作板に出す。
+    var nowPlayingLines: [String] = []
+    /// 今かかっている音源のプレイヤーを開く。小さい操作板を押したときに使う。
+    var onOpenNowPlaying: () -> Void = {}
     /// 戻るなぞり操作の進み具合。重なりを管理している側へ渡す。
     var onBackDragChanged: (CGFloat) -> Void = { _ in }
     var onBackDragEnded: (CGFloat, CGFloat) -> Void = { _, _ in }
@@ -20,6 +24,11 @@ struct PlayerView: View {
 
     /// この画面の音源が、いま再生機に載っているか。
     private var isLive: Bool { player.currentTrackID == track.id }
+
+    /// いま鳴っている音源(この画面のものとは限らない)
+    private var playingTrack: Track? {
+        player.currentTrackID.flatMap { id in library.tracks.first { $0.id == id } }
+    }
 
     /// ライブラリ側が更新される(字幕を後から足す等)ので、常に最新を引き直す。
     private var liveTrack: Track {
@@ -51,17 +60,29 @@ struct PlayerView: View {
                 )
             )
 
-            VStack(spacing: 10) {
-                if isLive {
+            VStack(spacing: 0) {
+                // 別の音源が鳴っている間は、その操作板をいつもの操作の上に載せる
+                if !isLive, let playing = playingTrack {
+                    MiniPlayerBar(
+                        title: playing.displayName,
+                        lines: nowPlayingLines,
+                        isPlaying: player.isPlaying,
+                        progress: player.effectiveDuration > 0
+                            ? player.effectiveTime(for: player.currentTime) / player.effectiveDuration
+                            : 0,
+                        onOpen: onOpenNowPlaying,
+                        onToggle: { player.togglePlayPause() }
+                    )
+                }
+
+                VStack(spacing: 10) {
                     seekSection
                     transportSection
-                } else {
-                    switchSection
                 }
+                .padding(.horizontal, 20)
+                .padding(.top, 10)
+                .padding(.bottom, 8)
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 10)
-            .padding(.bottom, 8)
             .background(.bar)
         }
         .onAppear(perform: loadIfNeeded)
@@ -92,25 +113,6 @@ struct PlayerView: View {
         .accessibilityIdentifier("previewList")
     }
 
-    /// この音源へ切り替えるための操作部。押すまでは今かかっている音を止めない。
-    private var switchSection: some View {
-        VStack(spacing: 8) {
-            Text("別の音源が再生中です")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-            Button {
-                switchToThisTrack()
-            } label: {
-                Label("この音源を再生", systemImage: "play.fill")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-            }
-            .buttonStyle(.borderedProminent)
-            .accessibilityIdentifier("switchToTrack")
-        }
-        .padding(.bottom, 4)
-    }
 
     // MARK: - シーク
 
@@ -140,7 +142,7 @@ struct PlayerView: View {
                     player.endScrubbing(at: player.realTime(for: scrubValue))
                 }
             }
-            .disabled(player.effectiveDuration <= 0)
+            .disabled(!isLive || player.effectiveDuration <= 0)
 
             HStack {
                 Text(TimeFormatter.string(from: displayedTime))
@@ -289,18 +291,19 @@ struct PlayerView: View {
                 Image(systemName: "backward.end.fill")
                     .font(.system(size: 26))
             }
-            .disabled(!player.hasPreviousGroup)
+            .disabled(!isLive || !player.hasPreviousGroup)
             .accessibilityIdentifier("previousGroup")
             .accessibilityLabel("前の塊へ")
 
             Button {
-                player.togglePlayPause()
+                if isLive { player.togglePlayPause() } else { switchToThisTrack() }
             } label: {
-                Image(systemName: player.isPlaying ? "pause.circle.fill" : "play.circle.fill")
+                Image(systemName: isLive && player.isPlaying ? "pause.circle.fill" : "play.circle.fill")
                     .font(.system(size: 64))
             }
-            .disabled(!player.isReady)
-            .accessibilityLabel(player.isPlaying ? "一時停止" : "再生")
+            .disabled(isLive && !player.isReady)
+            .accessibilityIdentifier(isLive ? "transport" : "switchToTrack")
+            .accessibilityLabel(isLive && player.isPlaying ? "一時停止" : "再生")
 
             Button {
                 player.goToNextGroup()
@@ -308,7 +311,7 @@ struct PlayerView: View {
                 Image(systemName: "forward.end.fill")
                     .font(.system(size: 26))
             }
-            .disabled(!player.hasNextGroup)
+            .disabled(!isLive || !player.hasNextGroup)
             .accessibilityIdentifier("nextGroup")
             .accessibilityLabel("次の塊へ")
         }

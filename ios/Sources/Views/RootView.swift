@@ -52,6 +52,10 @@ struct RootView: View {
                         case .player:
                             PlayerView(
                                 track: track,
+                                nowPlayingLines: currentLines,
+                                onOpenNowPlaying: {
+                                    if let id = player.currentTrackID { open(.player(id)) }
+                                },
                                 onBackDragChanged: { dragX = max(0, $0) },
                                 onBackDragEnded: { translation, predicted in
                                     finish(translation: translation, predicted: predicted, width: width)
@@ -118,6 +122,17 @@ struct RootView: View {
         player.currentTrackID.flatMap { id in library.tracks.first { $0.id == id } }
     }
 
+    /// 今かかっている項目の字幕。読み直しはまとめてあるので数行しか出ない。
+    /// 訳を伏せる設定なら英文だけにして、プレイヤー画面と食い違わないようにする。
+    private var currentLines: [String] {
+        guard let index = player.highlightedGroupIndex,
+              player.groups.indices.contains(index) else { return [] }
+        let lines = player.groups[index].lines(in: player.cues).map(\.text)
+        guard !settings.showTranslation else { return lines }
+        let english = lines.filter { !$0.looksLikeTranslation }
+        return english.isEmpty ? lines : english
+    }
+
     /// タブの帯のすぐ上に出す小さい操作板。
     /// 画面を離れても鳴り続けるので、止める・戻るための手がかりを残しておく。
     @ViewBuilder
@@ -125,6 +140,7 @@ struct RootView: View {
         if opened == nil, let track = playingTrack {
             MiniPlayerBar(
                 title: track.displayName,
+                lines: currentLines,
                 isPlaying: player.isPlaying,
                 progress: player.effectiveDuration > 0
                     ? player.effectiveTime(for: player.currentTime) / player.effectiveDuration
@@ -166,8 +182,10 @@ struct RootView: View {
 
 /// タブの帯のすぐ上に出す、小さい再生操作板。
 /// 帯を押すとプレイヤー画面へ戻り、右端のボタンで止め直せる。
-private struct MiniPlayerBar: View {
+struct MiniPlayerBar: View {
     let title: String
+    /// 今かかっている項目の字幕。空なら音源の名前を出す。
+    let lines: [String]
     let isPlaying: Bool
     /// 0〜1。細い線で今どのあたりかを示す。
     let progress: Double
@@ -182,10 +200,24 @@ private struct MiniPlayerBar: View {
                 .frame(width: 22)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.subheadline.weight(.medium))
-                    .lineLimit(1)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                // 帯が厚くなりすぎないよう 2 行までにする。
+                // ここは読むための場所ではなく、今どこかを知るための表示。
+                if lines.isEmpty {
+                    Text(title)
+                        .font(.subheadline.weight(.medium))
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                } else {
+                    VStack(alignment: .leading, spacing: 1) {
+                        ForEach(Array(lines.prefix(2).enumerated()), id: \.offset) { index, line in
+                            Text(line)
+                                .font(index == 0 ? .subheadline.weight(.medium) : .caption)
+                                .foregroundStyle(index == 0 ? Color.primary : Color.secondary)
+                                .lineLimit(1)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                }
                 // 目盛りは細い線だけにする。数字まで出すと帯が厚くなる。
                 GeometryReader { proxy in
                     ZStack(alignment: .leading) {
