@@ -42,3 +42,23 @@ extension View {
         modifier(BackSwipe(onChanged: onChanged, onEnded: onEnded))
     }
 }
+
+/// すりガラスの帯。下に不透明な色を敷いてから重ねる。
+///
+/// すりガラスは「後ろにあるもの」をぼかして写すため、画面が横から入ってくる
+/// 途中では、まだ後ろにいる一覧の画面が透けて残像のように見えてしまう。
+/// 自前の下地を敷けば、いつでも自分の背後だけを写す。
+struct OpaqueBar: ViewModifier {
+    func body(content: Content) -> some View {
+        content.background {
+            ZStack {
+                Color(.systemBackground)
+                Rectangle().fill(.bar)
+            }
+        }
+    }
+}
+
+extension View {
+    func opaqueBar() -> some View { modifier(OpaqueBar()) }
+}

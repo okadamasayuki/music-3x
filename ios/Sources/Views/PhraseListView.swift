@@ -116,6 +116,8 @@ struct PhraseDetailView: View {
                 }
             }
         }
+        // 横から入ってくる間に後ろの画面が透けないよう、自前の下地を持つ
+        .background(Color(.systemBackground).ignoresSafeArea())
         .onAppear(perform: load)
     }
 
@@ -149,7 +151,7 @@ struct PhraseDetailView: View {
         .padding(.horizontal, 16)
         .padding(.top, 6)
         .padding(.bottom, 12)
-        .background(.bar)
+        .opaqueBar()
         // 題名の帯を出していないので、ここでも戻る操作を受ける
         .backSwipe(onChanged: onBackDragChanged, onEnded: onBackDragEnded)
     }

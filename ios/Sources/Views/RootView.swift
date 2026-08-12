@@ -243,7 +243,7 @@ struct MiniPlayerBar: View {
         .padding(.leading, 14)
         .padding(.trailing, 4)
         .padding(.vertical, 6)
-        .background(.bar)
+        .opaqueBar()
         .overlay(alignment: .top) { Divider() }
         .contentShape(Rectangle())
         .onTapGesture(perform: onOpen)
