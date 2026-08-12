@@ -70,7 +70,7 @@ struct SettingsView: View {
     private var voiceSection: some View {
         Section {
             Toggle(isOn: $settings.voiceControl) {
-                Text("声で印を付ける")
+                Text("声で覚えた印を付ける")
             }
             .accessibilityIdentifier("voiceControl")
 
@@ -92,7 +92,8 @@ struct SettingsView: View {
                             .accessibilityIdentifier("voiceHeard")
                     }
                 }
-                Text("流れている項目に対して、「覚えた」で覚えた印、「お気に入り」で星が付きます。")
+                Text("英単語を声に出すと、その単語に覚えた印が付きます。"
+                     + "同じ語が何か所にも出てくる場合は、どれか決められないので反応しません。")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }

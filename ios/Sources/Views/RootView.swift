@@ -93,7 +93,7 @@ struct RootView: View {
                 library?.updatePosition(position, for: trackID)
             }
             applySettings()
-            voice.onCommand = { command in applyVoice(command) }
+            voice.onMatch = { group in markLearned(group) }
             updateVoice()
         }
         .onChange(of: settings.skipInterval) { _ in applySettings() }
@@ -101,6 +101,7 @@ struct RootView: View {
         .onChange(of: settings.defaultSpeed) { _ in applySettings() }
         .onChange(of: settings.showTranslation) { _ in applySettings() }
         .onChange(of: settings.voiceControl) { _ in updateVoice() }
+        .onChange(of: player.currentTrackID) { _ in updateVocabulary() }
     }
 
     private var tabs: some View {
@@ -190,27 +191,31 @@ struct RootView: View {
 
     private func updateVoice() {
         if settings.voiceControl {
+            updateVocabulary()
             voice.start()
         } else {
             voice.stop()
+            voice.vocabulary = [:]
             // 録音のために変えた音の設定を、再生だけの形へ戻す
             player.configureAudioSession()
         }
     }
 
-    /// 声の合図を、いま流れている項目への印に変える。
-    /// 印を外す向きには使わない。聞き違いで消えると取り返しがつかないため。
-    private func applyVoice(_ command: VoiceCommands.Command) {
-        guard let trackID = player.currentTrackID,
-              let group = player.activeGroupIndex else { return }
-        switch command {
-        case .learned:
-            player.setLearned(true, group: group)
-            library.setLearned(true, group: group, cueCount: player.cues.count, for: trackID)
-        case .favorite:
-            player.setFavorite(true, group: group)
-            library.setFavorite(true, group: group, cueCount: player.cues.count, for: trackID)
+    /// 声で指せる語の表を組み直す。使うときだけ作る。
+    private func updateVocabulary() {
+        guard settings.voiceControl, !player.groups.isEmpty else {
+            voice.vocabulary = [:]
+            return
         }
+        voice.vocabulary = player.groups.spokenVocabulary(in: player.cues)
+    }
+
+    /// 聞き取った単語の項目に、覚えた印を付ける。
+    /// 外す向きには使わない。聞き違いで消えると取り返しがつかないため。
+    private func markLearned(_ group: Int) {
+        guard let trackID = player.currentTrackID else { return }
+        player.setLearned(true, group: group)
+        library.setLearned(true, group: group, cueCount: player.cues.count, for: trackID)
         // 画面を見ずに使うので、効いたことを振動で返す
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
     }
