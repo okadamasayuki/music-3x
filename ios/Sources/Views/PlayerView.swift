@@ -105,17 +105,15 @@ struct PlayerView: View {
             // 押した拍子に鳴り出すと、印を確かめたいだけのときに邪魔になる。
             player.repeatFavorites.toggle()
         } label: {
-            HStack(spacing: 4) {
-                Image(systemName: on ? "repeat" : "star")
-                Text(count == 0 ? "お気に入り" : "お気に入り \(count)")
-            }
-            .font(.caption.weight(on ? .semibold : .regular))
-            .foregroundStyle(on ? Color.white : Color.secondary)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 4)
-            .background(
-                Capsule().fill(on ? Color.accentColor : Color.secondary.opacity(0.15))
-            )
+            // 印そのものと同じ黄色の星だけを出す。個数は一覧の見出しで分かる。
+            Image(systemName: "star.fill")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(on ? Color.black.opacity(0.7) : Color.secondary)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 5)
+                .background(
+                    Capsule().fill(on ? Color.yellow : Color.secondary.opacity(0.15))
+                )
         }
         .buttonStyle(.plain)
         .disabled(count == 0)
@@ -126,67 +124,87 @@ struct PlayerView: View {
 
     // MARK: - 再生コントロール
 
-    /// 設定した秒数に合う記号を選ぶ。用意のない秒数は数字なしの記号にする。
-    private func skipSymbol(forward: Bool) -> String {
-        let base = forward ? "goforward" : "gobackward"
-        let available: Set<Int> = [5, 10, 15, 30, 45, 60, 75, 90]
-        let n = Int(player.skipInterval.rounded())
-        return available.contains(n) ? "\(base).\(n)" : base
-    }
-
-    private var skipSeconds: Int { Int(player.skipInterval.rounded()) }
-
+    /// 左に訳の切り替え、中央に再生、右に速度。重ねて中央ぞろえにすると
+    /// 速度の「−」が次の塊ボタンに重なるため、横一列に並べて場所を分ける。
     private var transportSection: some View {
-        ZStack {
+        HStack(spacing: 0) {
+            TranslationToggle()
+            Spacer(minLength: 4)
             transportButtons
-            HStack {
-                TranslationToggle()
-                Spacer()
-                speedLabel
-            }
+            Spacer(minLength: 4)
+            speedStepper
         }
     }
 
-    /// 今の再生速度。押すとその場で選び直せる。
-    /// 設定を開かずに変えられないと、聞きながらの調整が面倒になるため。
-    private var speedLabel: some View {
-        Menu {
-            // Picker の選択を設定へ書き、設定の変化を見てプレイヤーへ渡す、という
-            // 遠回りをしていたため、選んでも速さが変わらないことがあった。
-            // 押した値をその場でプレイヤーへ入れる。
-            ForEach(AppSettings.speedChoices, id: \.self) { choice in
-                Button {
-                    apply(speed: choice)
-                } label: {
-                    if abs(player.speed - choice) < 0.001 {
-                        Label(SpeedFormatter.label(for: choice), systemImage: "checkmark")
-                    } else {
-                        Text(SpeedFormatter.label(for: choice))
-                    }
-                }
+    /// 再生速度。一覧から選ばせる形だと、行が狭いうえ真下に再生ボタンがあり、
+    /// 押し損ねると何も起きずに閉じるだけになる。一段ずつ動かす形にして、
+    /// 一度押せば必ず変わるようにした。
+    private var speedStepper: some View {
+        HStack(spacing: 2) {
+            Button {
+                stepSpeed(-1)
+            } label: {
+                Image(systemName: "minus")
+                    .font(.footnote.weight(.bold))
+                    .frame(width: 26, height: 32)
+                    .contentShape(Rectangle())
             }
-        } label: {
+            .disabled(!canStepSpeed(-1))
+            .accessibilityIdentifier("speedDown")
+            .accessibilityLabel("速度を下げる")
+
             Text(SpeedFormatter.label(for: player.speed))
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(.tint)
-                .frame(minWidth: 44, minHeight: 32)
-                .contentShape(Rectangle())
+                .font(.system(size: 16, weight: .semibold))
+                .monospacedDigit()
+                .frame(minWidth: 42)
+                .accessibilityIdentifier("speed")
+                .accessibilityLabel("再生速度 \(SpeedFormatter.label(for: player.speed))")
+
+            Button {
+                stepSpeed(1)
+            } label: {
+                Image(systemName: "plus")
+                    .font(.footnote.weight(.bold))
+                    .frame(width: 26, height: 32)
+                    .contentShape(Rectangle())
+            }
+            .disabled(!canStepSpeed(1))
+            .accessibilityIdentifier("speedUp")
+            .accessibilityLabel("速度を上げる")
         }
-        .accessibilityLabel("再生速度 \(SpeedFormatter.label(for: player.speed))")
-        .accessibilityHint("押すと速度を選べます")
-        .accessibilityIdentifier("speed")
+        .foregroundStyle(.tint)
+    }
+
+    /// 今の速度が刻みの何番目か。刻みに無い値なら、それ以下で一番近いものとみなす。
+    private var speedIndex: Int {
+        let choices = AppSettings.speedChoices
+        if let exact = choices.firstIndex(where: { abs($0 - player.speed) < 0.001 }) { return exact }
+        return choices.lastIndex(where: { $0 <= player.speed }) ?? 0
+    }
+
+    private func canStepSpeed(_ direction: Int) -> Bool {
+        AppSettings.speedChoices.indices.contains(speedIndex + direction)
+    }
+
+    private func stepSpeed(_ direction: Int) {
+        let target = speedIndex + direction
+        guard AppSettings.speedChoices.indices.contains(target) else { return }
+        apply(speed: AppSettings.speedChoices[target])
     }
 
     private var transportButtons: some View {
-        // 送り戻しは再生ボタンのすぐ脇に置く。離れていると持ち替えが要る。
-        HStack(spacing: 22) {
+        // 秒数で送るより教材の切れ目で動くほうが聞き直しやすいので、
+        // 送り戻しは前後の塊への移動にしてある。
+        HStack(spacing: 16) {
             Button {
-                player.skip(-player.skipInterval)
+                player.goToPreviousGroup()
             } label: {
-                Image(systemName: skipSymbol(forward: false))
-                    .font(.system(size: 30))
+                Image(systemName: "backward.end.fill")
+                    .font(.system(size: 26))
             }
-            .accessibilityLabel("\(skipSeconds)秒戻る")
+            .disabled(!player.hasPreviousGroup)
+            .accessibilityIdentifier("previousGroup")
+            .accessibilityLabel("前の塊へ")
 
             Button {
                 player.togglePlayPause()
@@ -198,12 +216,14 @@ struct PlayerView: View {
             .accessibilityLabel(player.isPlaying ? "一時停止" : "再生")
 
             Button {
-                player.skip(player.skipInterval)
+                player.goToNextGroup()
             } label: {
-                Image(systemName: skipSymbol(forward: true))
-                    .font(.system(size: 30))
+                Image(systemName: "forward.end.fill")
+                    .font(.system(size: 26))
             }
-            .accessibilityLabel("\(skipSeconds)秒進む")
+            .disabled(!player.hasNextGroup)
+            .accessibilityIdentifier("nextGroup")
+            .accessibilityLabel("次の塊へ")
         }
         .foregroundStyle(.tint)
     }

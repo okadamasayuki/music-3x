@@ -87,6 +87,9 @@ final class PlayerEngine: ObservableObject {
     // MARK: - 初期化
 
     init() {
+        // 読み込みが整うのを待たずに鳴らす。待つ設定のままだと、速度を上げた
+        // 拍子に「待ち」状態へ落ち、そのまま止まったように見えることがある。
+        player.automaticallyWaitsToMinimizeStalling = false
         configureAudioSession()
         setupRemoteCommands()
         observePlayer()
@@ -117,7 +120,7 @@ final class PlayerEngine: ObservableObject {
         // 選ぶと、そのまま新しい音源が鳴り出す。選んだだけでは鳴らないよう止める。
         player.pause()
 
-        let item = makeItem(for: audioURL)
+        let item = AVPlayerItem(url: audioURL)
         item.audioTimePitchAlgorithm = pitchAlgorithm
         player.replaceCurrentItem(with: item)
 
@@ -136,31 +139,17 @@ final class PlayerEngine: ObservableObject {
         updateNowPlayingInfo()
     }
 
-    /// 音だけを鳴らす項目を作る。
+    /// 映像の復号を止める。
     ///
-    /// 教材は映像付きの .mp4 で入っていることが多く、そのまま渡すと
-    /// 倍速時に映像の復号が追いつかず、音の再生ごと止まってしまう。
-    /// 画面には映像を出していないので、音のトラックだけを抜き出して鳴らす。
-    private func makeItem(for url: URL) -> AVPlayerItem {
-        let asset = AVURLAsset(url: url)
-        guard !asset.tracks(withMediaType: .video).isEmpty,
-              let source = asset.tracks(withMediaType: .audio).first
-        else { return AVPlayerItem(asset: asset) }
-
-        let composition = AVMutableComposition()
-        guard let track = composition.addMutableTrack(
-            withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid)
-        else { return AVPlayerItem(asset: asset) }
-
-        do {
-            try track.insertTimeRange(
-                CMTimeRange(start: .zero, duration: asset.duration), of: source, at: .zero)
-        } catch {
-            // 取り出せなければ元のまま鳴らす。音が出ないよりはましなため。
-            print("[PlayerEngine] 音声トラックの取り出しに失敗: \(error)")
-            return AVPlayerItem(asset: asset)
+    /// 教材は映像付きの .mp4 で入っていることが多いが、画面に映像は出していない。
+    /// 復号し続けるのは無駄で、倍速では負荷も上がる。
+    /// 一度 AVMutableComposition に組み直して音だけにする手も試したが、
+    /// 組み直した音源は等速以外で再生が止まってしまうため、元の音源のまま
+    /// 映像のトラックだけを止める。
+    private func disableVideoTracks(of item: AVPlayerItem) {
+        for track in item.tracks where track.assetTrack?.mediaType == .video {
+            track.isEnabled = false
         }
-        return AVPlayerItem(asset: composition)
     }
 
     func loadSubtitles(from url: URL?) {
@@ -189,6 +178,7 @@ final class PlayerEngine: ObservableObject {
                 let seconds = item.duration.seconds
                 self.duration = seconds.isFinite ? seconds : 0
                 self.isReady = true
+                self.disableVideoTracks(of: item)
                 self.rebuildSkippedRanges()
                 if startAt > 0, startAt < self.duration {
                     self.seek(to: startAt)
@@ -555,6 +545,26 @@ final class PlayerEngine: ObservableObject {
     func jumpToGroup(_ index: Int) {
         guard groups.indices.contains(index) else { return }
         seek(to: groups[index].start)
+    }
+
+    /// 次の塊の先頭へ。秒数で送るより、教材の切れ目で動くほうが聞き直しやすい。
+    func goToNextGroup() {
+        guard let index = activeGroupIndex else { return }
+        let next = index + 1
+        guard groups.indices.contains(next) else { return }
+        seek(to: groups[next].start)
+    }
+
+    /// 前の塊の先頭へ。先頭の塊にいるときはその頭へ戻す。
+    func goToPreviousGroup() {
+        guard let index = activeGroupIndex else { return }
+        seek(to: groups[max(index - 1, 0)].start)
+    }
+
+    var hasPreviousGroup: Bool { (activeGroupIndex ?? 0) > 0 }
+    var hasNextGroup: Bool {
+        guard let index = activeGroupIndex else { return false }
+        return groups.indices.contains(index + 1)
     }
 
     private func persistPosition() {

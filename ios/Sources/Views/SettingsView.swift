@@ -65,8 +65,6 @@ struct SettingsView: View {
             .accessibilityIdentifier("textSizeSample")
         } header: {
             Text("文字の大きさ: \(settings.textSizeLabel)")
-        } footer: {
-            Text("端末の文字サイズ設定とは別に、このアプリの中だけで決められます。")
         }
     }
 
@@ -96,16 +94,13 @@ struct SettingsView: View {
 
             Section {
                 Toggle(isOn: $settings.skipLearned) {
-                    Text("覚えた項目を飛ばす")
+                    Text("覚えた項目をスキップ")
                 }
                 Toggle(isOn: $settings.hideLearned) {
                     Text("覚えた項目を字幕から隠す")
                 }
             } header: {
                 Text("覚えた項目")
-            } footer: {
-                Text("「飛ばす」は再生時に読み飛ばし、その分だけ全体の長さも短く表示します。"
-                     + "「隠す」は字幕の一覧から消して、まだ覚えていない分だけを並べます。")
             }
             expirySection
         }
