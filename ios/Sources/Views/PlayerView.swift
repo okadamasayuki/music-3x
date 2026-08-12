@@ -83,7 +83,7 @@ struct PlayerView: View {
                 .padding(.top, 10)
                 .padding(.bottom, 8)
             }
-            .opaqueBar()
+            .opaqueBar(edges: .bottom)
         }
         // 横から入ってくる間に後ろの画面が透けないよう、自前の下地を持つ
         .background(Color(.systemBackground).ignoresSafeArea())

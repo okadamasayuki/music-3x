@@ -23,6 +23,8 @@ struct RootView: View {
     @State private var opened: Opened?
     /// 手前の画面を右へずらしている量。0 なら開いた状態。
     @State private var dragX: CGFloat = 0
+    /// 画面の横幅。開くときの初期位置(画面の外)を決めるために覚えておく。
+    @State private var screenWidth: CGFloat = 0
 
     private var openedTrack: Track? {
         opened.flatMap { o in library.tracks.first(where: { $0.id == o.trackID }) }
@@ -74,10 +76,14 @@ struct RootView: View {
                     .background(Color(.systemBackground).ignoresSafeArea())
                     .offset(x: dragX)
                     .shadow(color: .black.opacity(0.3), radius: 12, x: -6)
-                    .transition(.move(edge: .trailing))
+                    // 入場効果(transition)は使わない。位置移動と薄れが混ざり、
+                    // 中身だけが全幅に薄く描かれて残像のように見えるため。
+                    // 位置は dragX だけで動かす。
                     .zIndex(1)
                 }
             }
+            .onAppear { screenWidth = width }
+            .onChange(of: width) { screenWidth = $0 }
         }
         .onAppear {
             // 再生位置の保存はライブラリ側の責務なので、ここで橋渡しする
@@ -151,9 +157,15 @@ struct RootView: View {
         }
     }
 
+    /// 画面の外(右)へ置いてから、その場へ滑らせる。
     private func open(_ target: Opened) {
-        dragX = 0
-        withAnimation(.easeOut(duration: 0.28)) { opened = target }
+        let width = max(screenWidth, 1)
+        opened = target
+        dragX = width
+        // 置いた直後に動かす。同じ描画のうちに動かすと、初期位置が無視される。
+        DispatchQueue.main.async {
+            withAnimation(.easeOut(duration: 0.28)) { dragX = 0 }
+        }
     }
 
     /// 指を離したとき、戻しきるか元へ返すかを決める。
@@ -244,7 +256,6 @@ struct MiniPlayerBar: View {
         .padding(.trailing, 4)
         .padding(.vertical, 6)
         .opaqueBar()
-        .overlay(alignment: .top) { Divider() }
         .contentShape(Rectangle())
         .onTapGesture(perform: onOpen)
         // 中の再生ボタンを外から押せるよう、ひとまとめにはしない

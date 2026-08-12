@@ -151,7 +151,7 @@ struct PhraseDetailView: View {
         .padding(.horizontal, 16)
         .padding(.top, 6)
         .padding(.bottom, 12)
-        .opaqueBar()
+        .opaqueBar(edges: .top)
         // 題名の帯を出していないので、ここでも戻る操作を受ける
         .backSwipe(onChanged: onBackDragChanged, onEnded: onBackDragEnded)
     }

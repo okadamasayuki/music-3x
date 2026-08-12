@@ -43,22 +43,24 @@ extension View {
     }
 }
 
-/// すりガラスの帯。下に不透明な色を敷いてから重ねる。
+/// 操作の帯。単色で塗り、必要なら画面の端まで伸ばす。
 ///
 /// すりガラスは「後ろにあるもの」をぼかして写すため、画面が横から入ってくる
-/// 途中では、まだ後ろにいる一覧の画面が透けて残像のように見えてしまう。
-/// 自前の下地を敷けば、いつでも自分の背後だけを写す。
+/// 途中で後ろの一覧が透ける。下地を敷いて重ねると今度は継ぎ目がスジに見えた。
+/// 一枚の単色にして、どちらも起こらないようにする。
 struct OpaqueBar: ViewModifier {
+    /// 塗りを safe area の外まで伸ばす向き。伸ばさないと端に別色の帯が残る。
+    var edges: Edge.Set
+
     func body(content: Content) -> some View {
-        content.background {
-            ZStack {
-                Color(.systemBackground)
-                Rectangle().fill(.bar)
-            }
-        }
+        content.background(
+            Color(.secondarySystemBackground).ignoresSafeArea(edges: edges)
+        )
     }
 }
 
 extension View {
-    func opaqueBar() -> some View { modifier(OpaqueBar()) }
+    func opaqueBar(edges: Edge.Set = []) -> some View {
+        modifier(OpaqueBar(edges: edges))
+    }
 }
