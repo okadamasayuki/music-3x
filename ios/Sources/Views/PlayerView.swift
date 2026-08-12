@@ -144,14 +144,21 @@ struct PlayerView: View {
                     .accessibilityIdentifier("voiceHeard")
 
                 if !voice.lastMatched.isEmpty {
-                    // 少し違って聞こえた場合は、どう化けたのかも添える
-                    Text(voice.lastMatchedHeardAs == voice.lastMatched
-                         ? voice.lastMatched
-                         : "\(voice.lastMatched) ←「\(voice.lastMatchedHeardAs)」")
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.tint)
-                        .lineLimit(1)
-                        .accessibilityIdentifier("voiceMatched")
+                    HStack(spacing: 4) {
+                        Image(systemName: voice.lastMatchedBecameLearned
+                              ? "checkmark.circle.fill" : "circle")
+                        // 少し違って聞こえた場合は、どう化けたのかも添える
+                        Text(voice.lastMatchedHeardAs == voice.lastMatched
+                             ? voice.lastMatched
+                             : "\(voice.lastMatched) ←「\(voice.lastMatchedHeardAs)」")
+                    }
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(voice.lastMatchedBecameLearned ? Color.accentColor : Color.secondary)
+                    .lineLimit(1)
+                    .accessibilityIdentifier("voiceMatched")
+                    .accessibilityLabel(voice.lastMatchedBecameLearned
+                                        ? "\(voice.lastMatched) に覚えた印を付けました"
+                                        : "\(voice.lastMatched) の覚えた印を外しました")
                 }
             }
         }

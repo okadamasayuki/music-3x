@@ -93,7 +93,7 @@ struct RootView: View {
                 library?.updatePosition(position, for: trackID)
             }
             applySettings()
-            voice.onMatch = { group in markLearned(group) }
+            voice.onMatch = { group in toggleLearned(group) }
             updateVoice()
         }
         .onChange(of: settings.skipInterval) { _ in applySettings() }
@@ -210,14 +210,18 @@ struct RootView: View {
         voice.vocabulary = player.groups.spokenVocabulary(in: player.cues)
     }
 
-    /// 聞き取った単語の項目に、覚えた印を付ける。
-    /// 外す向きには使わない。聞き違いで消えると取り返しがつかないため。
-    private func markLearned(_ group: Int) {
-        guard let trackID = player.currentTrackID else { return }
-        player.setLearned(true, group: group)
-        library.setLearned(true, group: group, cueCount: player.cues.count, for: trackID)
-        // 画面を見ずに使うので、効いたことを振動で返す
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+    /// 聞き取った単語の項目の、覚えた印を入れ替える。
+    /// すでに付いていれば外す。付けたのと同じ言い方で戻せるようにするため。
+    /// 返すのは、その結果として印が付いたかどうか。
+    @discardableResult
+    private func toggleLearned(_ group: Int) -> Bool {
+        guard let trackID = player.currentTrackID else { return false }
+        let learned = !player.learnedGroups.contains(group)
+        player.setLearned(learned, group: group)
+        library.setLearned(learned, group: group, cueCount: player.cues.count, for: trackID)
+        // 画面を見ずに使うので、振動で返す。付けたときと外したときで手触りを変える。
+        UIImpactFeedbackGenerator(style: learned ? .medium : .soft).impactOccurred()
+        return learned
     }
 
     private func applySettings() {

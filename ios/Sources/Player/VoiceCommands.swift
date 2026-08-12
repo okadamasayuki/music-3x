@@ -18,6 +18,8 @@ final class VoiceCommands: NSObject, ObservableObject {
     /// 少し違って聞こえても拾うので、何に化けたのかを見せる。
     @Published private(set) var lastMatched = ""
     @Published private(set) var lastMatchedHeardAs = ""
+    /// 直近の一言で印が付いたのか、外れたのか。画面に出し分けるために持つ。
+    @Published private(set) var lastMatchedBecameLearned = true
     /// 許可が下りなかった場合の説明。
     @Published private(set) var problem: String?
     /// 自分の再生音をマイクから差し引けているか。切れているとスピーカーでは
@@ -28,7 +30,8 @@ final class VoiceCommands: NSObject, ObservableObject {
     var vocabulary: [String: Int] = [:]
 
     /// 単語を聞き取ったときに呼ぶ。渡すのは項目番号。
-    var onMatch: ((Int) -> Void)?
+    /// 返すのは、その結果として覚えた印が付いたか(true)外れたか(false)。
+    var onMatch: ((Int) -> Bool)?
 
     private let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
     private let engine = AVAudioEngine()
@@ -178,7 +181,7 @@ final class VoiceCommands: NSObject, ObservableObject {
             firedAt[hit.group] = Date()
             lastMatched = hit.word
             lastMatchedHeardAs = spoken
-            onMatch?(hit.group)
+            lastMatchedBecameLearned = onMatch?(hit.group) ?? true
         }
     }
 

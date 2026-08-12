@@ -98,7 +98,7 @@ struct SettingsView: View {
                     }
                     if !voice.lastMatched.isEmpty {
                         HStack {
-                            Text("直前に付けた印")
+                            Text(voice.lastMatchedBecameLearned ? "直前に付けた印" : "直前に外した印")
                                 .font(.footnote)
                                 .foregroundStyle(.secondary)
                             Spacer()
@@ -106,13 +106,15 @@ struct SettingsView: View {
                                  ? voice.lastMatched
                                  : "\(voice.lastMatched) ←「\(voice.lastMatchedHeardAs)」")
                                 .font(.footnote.weight(.semibold))
-                                .foregroundStyle(.tint)
+                                .foregroundStyle(voice.lastMatchedBecameLearned
+                                                 ? Color.accentColor : Color.secondary)
                                 .lineLimit(1)
                                 .accessibilityIdentifier("voiceMatched")
                         }
                     }
                 }
-                Text("英単語を声に出すと、その単語に覚えた印が付きます。"
+                Text("英単語を声に出すと、その単語の覚えた印が入れ替わります。"
+                     + "付いていなければ付き、付いていれば外れます。"
                      + "同じ語が何か所にも出てくる場合は、どれか決められないので反応しません。")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
