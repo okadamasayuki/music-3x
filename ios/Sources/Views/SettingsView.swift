@@ -93,7 +93,23 @@ struct SettingsView: View {
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
+                            .truncationMode(.head)
                             .accessibilityIdentifier("voiceHeard")
+                    }
+                    if !voice.lastMatched.isEmpty {
+                        HStack {
+                            Text("直前に付けた印")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            Text(voice.lastMatchedHeardAs == voice.lastMatched
+                                 ? voice.lastMatched
+                                 : "\(voice.lastMatched) ←「\(voice.lastMatchedHeardAs)」")
+                                .font(.footnote.weight(.semibold))
+                                .foregroundStyle(.tint)
+                                .lineLimit(1)
+                                .accessibilityIdentifier("voiceMatched")
+                        }
                     }
                 }
                 Text("英単語を声に出すと、その単語に覚えた印が付きます。"

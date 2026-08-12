@@ -14,8 +14,10 @@ final class VoiceCommands: NSObject, ObservableObject {
     @Published private(set) var isListening = false
     /// 直近に聞き取った言葉。設定画面で反応を確かめるために出す。
     @Published private(set) var lastHeard = ""
-    /// 直近に印を付けた単語。効いたことを目でも確かめられるように。
+    /// 直近に印を付けた単語と、実際に聞き取れた言い方。
+    /// 少し違って聞こえても拾うので、何に化けたのかを見せる。
     @Published private(set) var lastMatched = ""
+    @Published private(set) var lastMatchedHeardAs = ""
     /// 許可が下りなかった場合の説明。
     @Published private(set) var problem: String?
     /// 自分の再生音をマイクから差し引けているか。切れているとスピーカーでは
@@ -150,6 +152,9 @@ final class VoiceCommands: NSObject, ObservableObject {
 
     // MARK: - 聞き取った言葉を項目に結び付ける
 
+    /// 直前に照合した言葉。同じ言葉を何度も引き直さないために覚えておく。
+    private var lastExamined: [String] = []
+
     private func match(in text: String) {
         guard !vocabulary.isEmpty else { return }
         let words = text.lowercased()
@@ -159,21 +164,87 @@ final class VoiceCommands: NSObject, ObservableObject {
 
         // 途中経過は前の分も含めて届くので、末尾のいくつかだけを見る。
         // 二語のつながり(per capita など)も拾えるよう、続く 2 語も試す。
-        let tail = Array(words.suffix(5))
-        var hits: [Int] = []
+        let tail = Array(words.suffix(4))
+        var candidates: [String] = []
         for i in tail.indices {
-            if i + 1 < tail.count, let group = vocabulary["\(tail[i]) \(tail[i+1])"] {
-                hits.append(group)
-            }
-            if let group = vocabulary[tail[i]] {
-                hits.append(group)
+            if i + 1 < tail.count { candidates.append("\(tail[i]) \(tail[i+1])") }
+            candidates.append(tail[i])
+        }
+        let fresh = candidates.filter { !lastExamined.contains($0) }
+        lastExamined = candidates
+
+        for spoken in fresh {
+            guard let hit = lookup(spoken), canFire(hit.group) else { continue }
+            firedAt[hit.group] = Date()
+            lastMatched = hit.word
+            lastMatchedHeardAs = spoken
+            onMatch?(hit.group)
+        }
+    }
+
+    /// 聞き取った言葉から項目を引く。そのまま無ければ、少し違う綴りも許す。
+    ///
+    /// 認識は "declare" を "declair" のように取り違えることがある。
+    /// 語の長さに応じた範囲までのずれなら同じ語とみなす。ただし同じ距離に
+    /// 複数の候補が並ぶときは決められないので諦める。
+    private func lookup(_ spoken: String) -> (word: String, group: Int)? {
+        if let group = vocabulary[spoken] { return (spoken, group) }
+
+        let limit = Self.allowedSlack(for: spoken)
+        guard limit > 0 else { return nil }
+
+        let spokenChars = Array(spoken)
+        var best: (word: String, group: Int, distance: Int)?
+        var tiedAtBest = false
+
+        for (word, group) in vocabulary {
+            // 長さが離れすぎているものは計算するまでもない
+            guard abs(word.count - spoken.count) <= limit else { continue }
+            let distance = Self.editDistance(spokenChars, Array(word), limit: limit)
+            guard distance <= limit else { continue }
+            if let current = best {
+                if distance < current.distance {
+                    best = (word, group, distance)
+                    tiedAtBest = false
+                } else if distance == current.distance, group != current.group {
+                    tiedAtBest = true
+                }
+            } else {
+                best = (word, group, distance)
             }
         }
-        for group in hits where canFire(group) {
-            firedAt[group] = Date()
-            lastMatched = text
-            onMatch?(group)
+        guard let best, !tiedAtBest else { return nil }
+        return (best.word, best.group)
+    }
+
+    /// 語の長さごとに、どこまでのずれを許すか。
+    private static func allowedSlack(for word: String) -> Int {
+        switch word.count {
+        case 0...3: return 0     // 短すぎる語は許すと取り違えが増える
+        case 4...5: return 1
+        case 6...8: return 2
+        default: return 3
         }
+    }
+
+    /// 綴りの隔たり。limit を超えると分かった時点で打ち切る。
+    private static func editDistance(_ a: [Character], _ b: [Character], limit: Int) -> Int {
+        if a.isEmpty { return b.count }
+        if b.isEmpty { return a.count }
+        var previous = Array(0...b.count)
+        var current = [Int](repeating: 0, count: b.count + 1)
+        for i in 1...a.count {
+            current[0] = i
+            var rowMin = current[0]
+            for j in 1...b.count {
+                let cost = a[i-1] == b[j-1] ? 0 : 1
+                current[j] = Swift.min(previous[j] + 1, current[j-1] + 1, previous[j-1] + cost)
+                rowMin = Swift.min(rowMin, current[j])
+            }
+            if rowMin > limit { return limit + 1 }
+            swap(&previous, &current)
+        }
+        return previous[b.count]
     }
 
     private func canFire(_ group: Int) -> Bool {

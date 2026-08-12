@@ -13,6 +13,7 @@ struct PlayerView: View {
     @EnvironmentObject private var library: LibraryStore
     @EnvironmentObject private var player: PlayerEngine
     @EnvironmentObject private var settings: AppSettings
+    @EnvironmentObject private var voice: VoiceCommands
 
     @State private var scrubValue: Double = 0
     @State private var isScrubbing = false
@@ -76,6 +77,7 @@ struct PlayerView: View {
                 }
 
                 VStack(spacing: 10) {
+                    if settings.voiceControl { voiceStrip }
                     seekSection
                     transportSection
                 }
@@ -115,6 +117,46 @@ struct PlayerView: View {
         .accessibilityIdentifier("previewList")
     }
 
+
+    /// 声をどう聞き取ったかを、聞きながら確かめられるように出す。
+    /// 反応しないとき、何に化けているのかが分からないと直しようがないため。
+    private var voiceStrip: some View {
+        HStack(spacing: 8) {
+            Image(systemName: voice.isListening ? "mic.fill" : "mic.slash.fill")
+                .font(.caption2)
+                .foregroundStyle(voice.isListening
+                                 ? (voice.echoCancelled ? Color.green : Color.orange)
+                                 : Color.secondary)
+
+            if let problem = voice.problem {
+                Text(problem)
+                    .font(.caption2)
+                    .foregroundStyle(.red)
+                    .lineLimit(1)
+            } else {
+                // 聞き取った言葉は末尾を見せる。前の分は流れていくだけなので。
+                Text(voice.lastHeard.isEmpty ? "聞いています" : voice.lastHeard)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.head)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityIdentifier("voiceHeard")
+
+                if !voice.lastMatched.isEmpty {
+                    // 少し違って聞こえた場合は、どう化けたのかも添える
+                    Text(voice.lastMatchedHeardAs == voice.lastMatched
+                         ? voice.lastMatched
+                         : "\(voice.lastMatched) ←「\(voice.lastMatchedHeardAs)」")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.tint)
+                        .lineLimit(1)
+                        .accessibilityIdentifier("voiceMatched")
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
 
     // MARK: - シーク
 
