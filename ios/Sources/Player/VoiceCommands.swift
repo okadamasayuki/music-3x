@@ -44,8 +44,10 @@ final class VoiceCommands: NSObject, ObservableObject {
     /// いま聞いているあたりの項目番号。ここから離れた項目は対象にしない。
     var focusGroup: (() -> Int?)?
     /// どこまでさかのぼるか・先を見るか。聞いた直後に言うので、後ろを広く取る。
-    static let lookBehind = 40
-    static let lookAhead = 10
+    /// 狭いほど、聞き違いが別の項目に当たる余地が減る。4 倍速なら
+    /// 15 項目でおよそ 15 秒ぶん、等速なら 1 分ぶんさかのぼれる。
+    static let lookBehind = 15
+    static let lookAhead = 5
 
     /// 単語を聞き取ったときに呼ぶ。渡すのは項目番号。
     /// 返すのは、その結果として覚えた印が付いたか(true)外れたか(false)。
