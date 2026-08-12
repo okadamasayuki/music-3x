@@ -76,6 +76,7 @@ struct SettingsView: View {
             }
             expirySection
         }
-        .navigationTitle("")
+        .navigationTitle("設定")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }

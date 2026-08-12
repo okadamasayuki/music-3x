@@ -23,16 +23,8 @@ struct LibraryView: View {
                 trackList
             }
         }
-        .navigationTitle("")
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    isImportingAudio = true
-                } label: {
-                    Label("音源を追加", systemImage: "plus")
-                }
-            }
-        }
+        .navigationTitle("ライブラリ")
+        .navigationBarTitleDisplayMode(.inline)
         .fileImporter(
             isPresented: $isImportingAudio,
             allowedContentTypes: Self.audioTypes,

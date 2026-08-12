@@ -1,8 +1,58 @@
 import SwiftUI
 
-/// 音声を鳴らさずに、フレーズを見ながら覚えた印を付けるための画面。
-/// プレイヤーと同じ字幕・同じ印を参照するので、どちらで付けても互いに反映される。
+/// 音源を選んでからフレーズを見る。ライブラリと同じ並びにしておくと、
+/// どの教材の分を見ているのか迷わない。
 struct PhraseListView: View {
+    @EnvironmentObject private var library: LibraryStore
+
+    var body: some View {
+        Group {
+            if library.tracks.isEmpty {
+                emptyState
+            } else {
+                List {
+                    ForEach(library.tracks) { track in
+                        NavigationLink(value: track.id) {
+                            Text(track.displayName)
+                                .font(.body)
+                                .lineLimit(2)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.vertical, 14)
+                        }
+                    }
+                }
+                .navigationDestination(for: UUID.self) { id in
+                    if let track = library.tracks.first(where: { $0.id == id }) {
+                        PhraseDetailView(track: track)
+                    }
+                }
+            }
+        }
+        .navigationTitle("フレーズ")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 14) {
+            Image(systemName: "text.book.closed")
+                .font(.system(size: 46))
+                .foregroundStyle(.tint)
+            Text("音源がまだありません")
+                .font(.title3.weight(.semibold))
+            Text("ライブラリに字幕付きの音源を入れると、\nここでフレーズを一覧できます。")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding(40)
+    }
+}
+
+/// 音声を鳴らさずに、フレーズを見ながら覚えた印を付けるための画面。
+/// 再生中かどうかに関わらず開けるよう、字幕はここで読み込む。
+struct PhraseDetailView: View {
+    let track: Track
+
     @EnvironmentObject private var library: LibraryStore
     @EnvironmentObject private var player: PlayerEngine
     @EnvironmentObject private var settings: AppSettings
@@ -19,61 +69,56 @@ struct PhraseListView: View {
         }
     }
 
+    @State private var cues: [SubtitleCue] = []
+    @State private var allGroups: [SubtitleGroup] = []
+    @State private var learned: Set<Int> = []
     @State private var filter: Filter = .all
 
     private var groups: [SubtitleGroup] {
         switch filter {
-        case .all: return player.groups
-        case .unlearned: return player.groups.filter { !player.learnedGroups.contains($0.id) }
-        case .learned: return player.groups.filter { player.learnedGroups.contains($0.id) }
+        case .all: return allGroups
+        case .unlearned: return allGroups.filter { !learned.contains($0.id) }
+        case .learned: return allGroups.filter { learned.contains($0.id) }
         }
     }
 
     var body: some View {
         Group {
-            if player.groups.isEmpty {
-                emptyState
+            if allGroups.isEmpty {
+                noSubtitle
             } else {
-                list
-            }
-        }
-        .navigationTitle("フレーズ")
-        .navigationBarTitleDisplayMode(.inline)
-    }
-
-    private var list: some View {
-        VStack(spacing: 0) {
-            header
-            if groups.isEmpty {
-                emptyForFilter
-            } else {
-                List {
-                    ForEach(groups) { group in
-                        row(for: group)
-                            .listRowInsets(EdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 16))
+                VStack(spacing: 0) {
+                    header
+                    if groups.isEmpty {
+                        emptyForFilter
+                    } else {
+                        List {
+                            ForEach(groups) { group in
+                                row(for: group)
+                                    .listRowInsets(EdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 16))
+                            }
+                        }
+                        .listStyle(.plain)
                     }
                 }
-                .listStyle(.plain)
             }
         }
+        .navigationTitle(track.displayName)
+        .navigationBarTitleDisplayMode(.inline)
+        .onAppear(perform: load)
     }
 
     private var header: some View {
         VStack(spacing: 10) {
             HStack(spacing: 10) {
-                Text(player.title.isEmpty ? "音源" : player.title)
-                    .font(.subheadline.weight(.semibold))
-                    .lineLimit(1)
-                Spacer(minLength: 4)
-                Text("\(player.learnedGroups.count) / \(player.groups.count)")
+                Text("\(learned.count) / \(allGroups.count)")
                     .font(.subheadline.monospacedDigit())
                     .foregroundStyle(.secondary)
-                // 訳を隠して意味を思い出す確認を、この画面でも一手で行えるようにする
+                Spacer()
                 TranslationToggle()
             }
 
-            ProgressView(value: Double(player.learnedGroups.count),
-                         total: Double(max(player.groups.count, 1)))
+            ProgressView(value: Double(learned.count), total: Double(max(allGroups.count, 1)))
                 .tint(.accentColor)
 
             Picker("表示", selection: $filter) {
@@ -88,7 +133,7 @@ struct PhraseListView: View {
     }
 
     private func row(for group: SubtitleGroup) -> some View {
-        let isLearned = player.learnedGroups.contains(group.id)
+        let isLearned = learned.contains(group.id)
         let lines = displayLines(of: group)
 
         return Button {
@@ -111,37 +156,50 @@ struct PhraseListView: View {
                 }
                 .opacity(isLearned ? 0.45 : 1)
             }
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(lines.first?.text ?? "")
         .accessibilityValue(isLearned ? "覚えた" : "未習")
-        .accessibilityHint("押すと覚えた印を切り替えます")
     }
 
     private func displayLines(of group: SubtitleGroup) -> [TranscriptLine] {
-        let lines = group.lines(in: player.cues)
+        let lines = group.lines(in: cues)
         guard !settings.showTranslation else { return lines }
         let english = lines.filter { !$0.text.looksLikeTranslation }
         return english.isEmpty ? lines : english
     }
 
-    private func setLearned(_ group: Int, _ learned: Bool) {
-        player.setLearned(learned, group: group)
-        if let trackID = player.currentTrackID {
-            library.setLearned(learned, group: group, cueCount: player.cues.count, for: trackID)
+    // MARK: - 読み込みと保存
+
+    private func load() {
+        guard let url = library.subtitleURL(for: track) else { return }
+        let content = (try? String(contentsOf: url, encoding: .utf8))
+            ?? (try? String(contentsOf: url, encoding: .shiftJIS)) ?? ""
+        cues = SubtitleParser.parse(content)
+        allGroups = cues.grouped()
+        learned = library.learnedGroups(for: track.id, cueCount: cues.count)
+    }
+
+    private func setLearned(_ group: Int, _ value: Bool) {
+        if value { learned.insert(group) } else { learned.remove(group) }
+        library.setLearned(value, group: group, cueCount: cues.count, for: track.id)
+        // 同じ音源を再生中なら、そちらの表示にも即座に反映する
+        if player.currentTrackID == track.id {
+            player.setLearned(value, group: group)
         }
     }
 
     // MARK: - 空の状態
 
-    private var emptyState: some View {
+    private var noSubtitle: some View {
         VStack(spacing: 14) {
-            Image(systemName: "text.book.closed")
-                .font(.system(size: 46))
-                .foregroundStyle(.tint)
-            Text("フレーズがまだありません")
+            Image(systemName: "captions.bubble")
+                .font(.system(size: 44))
+                .foregroundStyle(.tertiary)
+            Text("字幕がありません")
                 .font(.title3.weight(.semibold))
-            Text("ライブラリから字幕付きの音源を開くと、\nここに一覧が出ます。音声は流れません。")
+            Text("ライブラリでこの音源を長押しし、\n「字幕を追加」から読み込んでください。")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
