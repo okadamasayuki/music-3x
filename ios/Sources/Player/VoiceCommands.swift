@@ -30,7 +30,13 @@ final class VoiceCommands: NSObject, ObservableObject {
     @Published private(set) var echoCancelled = false
 
     /// 言葉から項目番号を引くための表。音源が変わるたびに入れ替える。
-    var vocabulary: [String: Int] = [:]
+    var vocabulary: [String: Int] = [:] {
+        didSet {
+            phoneticKeys = vocabulary.keys.reduce(into: [:]) { $0[$1] = Phonetic.key(of: $1) }
+        }
+    }
+    /// 語ごとの音の骨格。引くたびに作り直さないよう控えておく。
+    private var phoneticKeys: [String: String] = [:]
 
     /// 単語の前に言う合図。手元の教材(単語版・例文版)のどちらにも
     /// 一度も出てこない語だけを選んである。聞き違いで合図が生まれると
@@ -263,7 +269,44 @@ final class VoiceCommands: NSObject, ObservableObject {
                 best = (word, group, distance)
             }
         }
-        guard let best, !tiedAtBest else { return nil }
+        if let best, !tiedAtBest { return (best.word, best.group) }
+        // 綴りで見つからなければ、音の近さで探す。聞き違いは綴りではなく
+        // 音で起きるため、こちらのほうが拾える。
+        return lookupBySound(spoken, inFocus: inFocus)
+    }
+
+    /// 音の骨格が一番近いものを選ぶ。
+    ///
+    /// 綴りでの照合より広く拾えるが、そのぶん無関係な語にも当たりやすい。
+    /// 許すずれを骨格の 4 分の 1 までに抑え、二番手とはっきり差があるときだけ採る。
+    private func lookupBySound(_ spoken: String, inFocus: (Int) -> Bool) -> (word: String, group: Int)? {
+        let spokenKey = Array(Phonetic.key(of: spoken))
+        guard spokenKey.count >= 2 else { return nil }
+        let limit = max(1, spokenKey.count / 4)
+
+        var best: (word: String, group: Int, distance: Int, spell: Int)?
+        var runnerUp = Int.max
+
+        for (word, group) in vocabulary {
+            guard inFocus(group) else { continue }
+            let key = Array(phoneticKeys[word] ?? Phonetic.key(of: word))
+            guard abs(key.count - spokenKey.count) <= limit else { continue }
+            let distance = Self.editDistance(spokenKey, key, limit: limit)
+            guard distance <= limit else { continue }
+            let spell = Self.editDistance(Array(spoken), Array(word), limit: 99)
+            if let current = best {
+                if distance < current.distance || (distance == current.distance && spell < current.spell) {
+                    if group != current.group { runnerUp = min(runnerUp, current.distance) }
+                    best = (word, group, distance, spell)
+                } else if group != current.group {
+                    runnerUp = min(runnerUp, distance)
+                }
+            } else {
+                best = (word, group, distance, spell)
+            }
+        }
+        // 二番手が同じ近さなら、どちらか決められないので諦める
+        guard let best, runnerUp > best.distance else { return nil }
         return (best.word, best.group)
     }
 

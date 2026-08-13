@@ -215,14 +215,23 @@ final class PlayerEngine: ObservableObject {
         seek(to: currentTime + seconds)
     }
 
-    func seek(to time: Double) {
+    func seek(to time: Double, silently: Bool = false) {
         let target = min(max(0, time), duration > 0 ? duration : time)
+        // 飛ばすときは移動が済むまで音を落とす。シークには間があり、
+        // その間に飛ばすはずの音が頭だけ漏れて聞こえるため。
+        if silently { player.volume = 0 }
         // 字幕とずれないよう許容誤差ゼロでシークする
         player.seek(
             to: CMTime(seconds: target, preferredTimescale: 600),
             toleranceBefore: .zero,
             toleranceAfter: .zero
-        )
+        ) { [weak self] _ in
+            guard silently, let self else { return }
+            // わずかに置いてから戻す。直後だと切り替わりの音が残る。
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.06) {
+                self.player.volume = 1
+            }
+        }
         currentTime = target
         // 強調位置もその場で更新する。次の定期更新を待つと、
         // 音が鳴り始めてから字幕が光るまでに間が空いて見える。
@@ -395,7 +404,10 @@ final class PlayerEngine: ObservableObject {
 
         // 位置の確認は一定間隔で行うため、入ってから気づくと、その間の音が
         // 途切れて鳴ってしまう。少し先を見て、入る前に飛ばす。
-        let lookahead = 0.4
+        //
+        // 先を見る幅は音声の時間で測る。倍速では同じ 0.4 秒でも実時間は
+        // 4 分の 1 しかなく、判断もシークも間に合わない。速さに応じて広げる。
+        let lookahead = 0.4 + 0.4 * speed
         let target = groups.group(at: time).map { (index: $0, entered: true) }
             ?? groups.group(at: time + lookahead).map { (index: $0, entered: false) }
 
@@ -403,7 +415,7 @@ final class PlayerEngine: ObservableObject {
         let index = target.index
 
         if let next = groups.firstUnlearned(after: groups[index].end, learned: learnedGroups) {
-            seek(to: next.start)
+            seek(to: next.start, silently: true)
         } else {
             // この先すべて覚えている場合は最後まで送って停止する
             pause()
@@ -481,12 +493,12 @@ final class PlayerEngine: ObservableObject {
         guard repeatFavorites, !favoriteRanges.isEmpty else { return false }
 
         // 覚えた分を飛ばすときと同じく、入る手前で判断して音の途切れを防ぐ
-        let lookahead = 0.4
+        let lookahead = 0.4 + 0.4 * speed
         let inside = favoriteRanges.contains { time >= $0.start - lookahead && time < $0.end }
         if inside { return false }
 
         let next = favoriteRanges.first { $0.start > time } ?? favoriteRanges[0]
-        seek(to: next.start)
+        seek(to: next.start, silently: true)
         return true
     }
 
