@@ -48,7 +48,12 @@ final class PlayerEngine: ObservableObject {
 
     /// お気に入りに入れた項目。
     @Published var favoriteGroups: Set<Int> = [] {
-        didSet { rebuildSkippedRanges() }
+        didSet {
+            // 最後の 1 件を外したら繰り返しも解く。入れたままだと、繰り返しは
+            // 空振りし、覚えた項目の飛ばしも抑えられたままで、身動きが取れなくなる。
+            if favoriteGroups.isEmpty, repeatFavorites { repeatFavorites = false }
+            rebuildSkippedRanges()
+        }
     }
 
     /// お気に入りだけを続けて流し、最後まで行ったら先頭へ戻る。
@@ -123,6 +128,11 @@ final class PlayerEngine: ObservableObject {
         // AVPlayer は差し替えても rate を保つため、鳴っている最中に別の音源を
         // 選ぶと、そのまま新しい音源が鳴り出す。選んだだけでは鳴らないよう止める。
         player.pause()
+        // 前の音源で飛ばしの最中だったとしても、消音を持ち越さない
+        seekGeneration += 1
+        pendingSeeks = 0
+        player.volume = 1
+        isMutedForSeek = false
 
         let item = AVPlayerItem(url: audioURL)
         item.audioTimePitchAlgorithm = pitchAlgorithm
@@ -215,21 +225,51 @@ final class PlayerEngine: ObservableObject {
         seek(to: currentTime + seconds)
     }
 
+    /// 進行中のシークの数。飛行中は定期監視を黙らせる。シーク前の古い位置で
+    /// 発火した監視が、同じ飛ばし判定をもう一度出してしまうため。
+    private var pendingSeeks = 0
+    /// 何本目のシークか。追い越された古いシークの完了を見分けるために使う。
+    private var seekGeneration = 0
+    /// 飛ばしのために消音しているか。
+    private var isMutedForSeek = false
+
     func seek(to time: Double, silently: Bool = false) {
         let target = min(max(0, time), duration > 0 ? duration : time)
+        seekGeneration += 1
+        let generation = seekGeneration
         // 飛ばすときは移動が済むまで音を落とす。シークには間があり、
         // その間に飛ばすはずの音が頭だけ漏れて聞こえるため。
-        if silently { player.volume = 0 }
+        // 音量を戻すのは移動が済んだ瞬間。それより遅らせると、今度は移動先の
+        // 頭がそのぶん消音のまま流れて、話し始めが欠けて聞こえる。
+        // 切り替わりに残るわずかな音は、着地点を項目の少し手前の無音に
+        // 置くことでかわす(leadInStart)。
+        if silently {
+            player.volume = 0
+            isMutedForSeek = true
+        } else if isMutedForSeek {
+            // 消音中に普通のシークが割り込んだら、その場で戻す。
+            // 追い越された側の完了は音量を触らないので、ここで戻さないと消えたままになる。
+            player.volume = 1
+            isMutedForSeek = false
+        }
+        pendingSeeks += 1
         // 字幕とずれないよう許容誤差ゼロでシークする
         player.seek(
             to: CMTime(seconds: target, preferredTimescale: 600),
             toleranceBefore: .zero,
             toleranceAfter: .zero
         ) { [weak self] _ in
-            guard silently, let self else { return }
-            // わずかに置いてから戻す。直後だと切り替わりの音が残る。
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.06) {
-                self.player.volume = 1
+            // 完了は任意のスレッドから届くので、状態は主スレッドでだけ触る
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.pendingSeeks = max(0, self.pendingSeeks - 1)
+                // 追い越された古いシークの完了では音量を触らない。後続のシークが
+                // 消音した直後に、古い完了が音量を戻して漏れてしまうため。
+                guard generation == self.seekGeneration else { return }
+                if self.isMutedForSeek {
+                    self.player.volume = 1
+                    self.isMutedForSeek = false
+                }
             }
         }
         currentTime = target
@@ -307,6 +347,9 @@ final class PlayerEngine: ObservableObject {
             queue: .main
         ) { [weak self] time in
             guard let self, !self.isScrubbing else { return }
+            // シークの飛行中は何もしない。移動前の古い位置で発火した監視が、
+            // 同じ飛ばし判定を重ねて出したり、時刻表示を巻き戻したりするため。
+            guard self.pendingSeeks == 0 else { return }
             let seconds = time.seconds
             guard seconds.isFinite else { return }
             self.currentTime = seconds
@@ -401,6 +444,10 @@ final class PlayerEngine: ObservableObject {
     @discardableResult
     private func skipLearnedIfNeeded(at time: Double) -> Bool {
         guard skipLearned, !repeatFavorites, !learnedGroups.isEmpty, !groups.isEmpty else { return false }
+        // 末尾に着いていたら何もしない。末尾の項目が覚えた印だと、ここで
+        // 「最後まで送って停止」が繰り返し発火し、再生を押しても即座に
+        // 止め戻されて末尾から再開できなくなる。
+        if duration > 0, time >= duration - 0.05 { return false }
 
         // 位置の確認は一定間隔で行うため、入ってから気づくと、その間の音が
         // 途切れて鳴ってしまう。少し先を見て、入る前に飛ばす。
@@ -408,20 +455,44 @@ final class PlayerEngine: ObservableObject {
         // 先を見る幅は音声の時間で測る。倍速では同じ 0.4 秒でも実時間は
         // 4 分の 1 しかなく、判断もシークも間に合わない。速さに応じて広げる。
         let lookahead = 0.4 + 0.4 * speed
-        let target = groups.group(at: time).map { (index: $0, entered: true) }
-            ?? groups.group(at: time + lookahead).map { (index: $0, entered: false) }
 
-        guard let target, learnedGroups.contains(target.index) else { return false }
-        let index = target.index
+        // いまいる項目か、この先 lookahead 以内に始まる項目だけを見る。
+        // 「lookahead 先の時刻を含む項目」を探すと、間に挟まる短い未習項目を
+        // 飛び越えて、その先の覚えた項目に反応してしまうことがある。
+        let index: Int
+        if let inside = groups.group(at: time) {
+            index = inside
+        } else if let upcoming = groups.firstIndex(where: { $0.start >= time }),
+                  groups[upcoming].start - time <= lookahead {
+            index = upcoming
+        } else {
+            return false
+        }
+        guard learnedGroups.contains(index) else { return false }
 
         if let next = groups.firstUnlearned(after: groups[index].end, learned: learnedGroups) {
-            seek(to: next.start, silently: true)
+            seek(to: leadInStart(of: next), silently: true)
         } else {
             // この先すべて覚えている場合は最後まで送って停止する
             pause()
             seek(to: duration > 0 ? duration : time)
         }
         return true
+    }
+
+    /// 飛ばした先の着地点。項目の頭ちょうどではなく、少し手前の無音に降りる。
+    ///
+    /// 移動が済んでから音量が戻るまでにはわずかな間があり、頭ちょうどに
+    /// 降りると、そのぶん話し始めが欠けて聞こえる。手前の無音に降りて、
+    /// その間が無音の上で過ぎるようにする。
+    private func leadInStart(of group: SubtitleGroup) -> Double {
+        // 音量が戻るまでの間(実時間)を、音声の時間に直したうえで少し余裕を取る
+        let lead = 0.05 + 0.1 * speed
+        // 手前の項目の中へは戻らない。飛ばしたはずの音の尻尾が鳴ってしまう。
+        // end ちょうどにも重ねない。end はその項目の中と判定されるので、
+        // 覚えた項目の縁に着地すると、同じ場所への飛ばしが繰り返されてしまう。
+        let floor = groups.last(where: { $0.end <= group.start + 0.001 })?.end ?? 0
+        return min(group.start, max(floor + 0.01, group.start - lead))
     }
 
     func setLearned(_ learned: Bool, group: Int) {
@@ -498,7 +569,12 @@ final class PlayerEngine: ObservableObject {
         if inside { return false }
 
         let next = favoriteRanges.first { $0.start > time } ?? favoriteRanges[0]
-        seek(to: next.start, silently: true)
+        // こちらも頭の欠け防止に、項目の少し手前の無音へ降りる
+        if let index = groups.group(at: next.start) {
+            seek(to: leadInStart(of: groups[index]), silently: true)
+        } else {
+            seek(to: next.start, silently: true)
+        }
         return true
     }
 

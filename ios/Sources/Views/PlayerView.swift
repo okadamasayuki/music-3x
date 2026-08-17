@@ -257,8 +257,10 @@ struct PlayerView: View {
                 )
         }
         .buttonStyle(.plain)
-        .disabled(count == 0)
-        .opacity(count == 0 ? 0.4 : 1)
+        // 入っている間は押せるままにする。星を全部外した後に切り替えだけ
+        // 残ると、押せないボタンが点いたままになってしまう。
+        .disabled(count == 0 && !on)
+        .opacity(count == 0 && !on ? 0.4 : 1)
         .accessibilityIdentifier("repeatFavorites")
         .accessibilityLabel(on ? "お気に入りの繰り返しを止める" : "お気に入りだけを繰り返す")
     }
