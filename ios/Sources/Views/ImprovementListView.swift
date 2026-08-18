@@ -39,6 +39,11 @@ struct ImprovementListView: View {
         .scrollDismissesKeyboard(.immediately)
         .navigationTitle("改善")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                connectionStatus
+            }
+        }
         .onAppear { checkReachability() }
         // 他のタブや画面を見に行っても書き取りは止めない。アプリの外へ
         // 出ても続けるのと同じ理由で、調べ物を挟む長い口述のため。
@@ -189,23 +194,28 @@ struct ImprovementListView: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
-        } footer: {
-            connectionFooter
         }
     }
 
     /// Mac に届くかどうかの表示。家に帰って Mac を点けたらここが緑になる。
-    private var connectionFooter: some View {
-        HStack(spacing: 6) {
-            Circle()
-                .fill(reachable == true ? Color.green : reachable == false ? Color.orange : Color.gray)
-                .frame(width: 8, height: 8)
-            Text(connectionLabel)
-            Spacer()
-            Button("再接続") { checkReachability() }
-                .font(.footnote)
+    /// 画面の右上に置き、押せばそのまま再接続になる。入力欄の近くに
+    /// 並べると毎回目に入って邪魔だという求めで、隅へ寄せた。
+    private var connectionStatus: some View {
+        Button(action: checkReachability) {
+            HStack(spacing: 5) {
+                Circle()
+                    .fill(reachable == true ? Color.green : reachable == false ? Color.orange : Color.gray)
+                    .frame(width: 8, height: 8)
+                Text(connectionLabel)
+                    .font(.footnote)
+                Image(systemName: "arrow.clockwise")
+                    .font(.caption2.weight(.semibold))
+            }
+            .foregroundStyle(.secondary)
         }
-        .font(.footnote)
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(connectionLabel)。タップで再接続")
+        .accessibilityIdentifier("connectionStatus")
     }
 
     private var connectionLabel: String {
