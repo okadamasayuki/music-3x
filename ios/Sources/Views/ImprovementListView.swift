@@ -112,7 +112,7 @@ struct ImprovementListView: View {
                         .frame(minWidth: 30, minHeight: 20)
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(dictation.isRecording ? .red : .accentColor)
+                .tint(dictation.isRecording ? (dictation.isSuspended ? .orange : .red) : .accentColor)
                 .accessibilityLabel(dictation.isRecording ? "聞き取り中。タップで完了" : "声で書き取る")
                 .accessibilityIdentifier("dictationToggle")
 
@@ -124,6 +124,15 @@ struct ImprovementListView: View {
                     .frame(minHeight: 28)
                     .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     .accessibilityIdentifier("addImprovement")
+            }
+
+            // 別のアプリへ移っても続くことは見た目から伝わらないので、言葉で添える
+            if dictation.isRecording {
+                Text(dictation.isSuspended
+                     ? "電話などでいったん途切れています。マイクが空きしだい続きを聞き取ります。"
+                     : "聞き取り中。ほかのアプリに移っても続きます。マイクをもう一度押すと完了です。")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
             }
 
             if let problem = dictation.problem {

@@ -2,6 +2,7 @@ import AVFoundation
 import Combine
 import Foundation
 import Speech
+import UIKit
 
 /// 改善メモを声で書き取るための聞き役。
 ///
@@ -13,9 +14,15 @@ import Speech
 /// 締め切られるたびに、そこまでの文を確定分へ積み上げて認識を組み直し、
 /// 使い手がボタンで止めるまで聞き続ける。作業しながらの長い口述で、
 /// 考え込んで黙っても書きかけが消えないようにするため。
+///
+/// 別のアプリへ移っても書き取りは続く。電話などにマイクを取られたときも
+/// 文を抱えたまま待ち、マイクが空きしだい聞き取りを取り戻す。調べ物を
+/// 挟みながらの口述で、戻るたびに録り直しにならないようにするため。
 final class Dictation: NSObject, ObservableObject {
 
     @Published private(set) var isRecording = false
+    /// 電話などにマイクを取られ、取り戻すのを待っている間 true。
+    @Published private(set) var isSuspended = false
     /// ここまでに聞き取れた文。確定分の後ろへ、いまの途中経過が足されていく。
     @Published private(set) var transcript = ""
     /// 許可が下りないなど、始められなかった理由。
@@ -35,6 +42,8 @@ final class Dictation: NSObject, ObservableObject {
     /// 声も拾えないまますぐ切れた回数。認識そのものが不調だと組み直しても
     /// すぐ切れるので、続くようなら諦めて止める。
     private var quickDeaths = 0
+    /// 中断と復帰の合図の聞き役。止めるときに外す。
+    private var observers: [NSObjectProtocol] = []
 
     func start() {
         guard !isRecording else { return }
@@ -63,6 +72,7 @@ final class Dictation: NSObject, ObservableObject {
     }
 
     func stop() {
+        removeObservers()
         task?.cancel()
         task = nil
         request?.endAudio()
@@ -75,6 +85,7 @@ final class Dictation: NSObject, ObservableObject {
         if engine.inputNode.isVoiceProcessingEnabled {
             try? engine.inputNode.setVoiceProcessingEnabled(false)
         }
+        isSuspended = false
         isRecording = false
     }
 
@@ -83,13 +94,9 @@ final class Dictation: NSObject, ObservableObject {
             problem = "この端末では日本語の音声認識が使えません。"
             return
         }
+        recognizer.delegate = self
         do {
-            // 再生中でも書き取れるよう playAndRecord にする。mode を .voiceChat に
-            // するとエコー消去が働き、スピーカーで鳴っている教材の声を拾いにくくなる。
-            let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playAndRecord, mode: .voiceChat,
-                                    options: [.defaultToSpeaker, .allowBluetooth, .allowBluetoothA2DP])
-            try session.setActive(true)
+            try configureSession()
         } catch {
             problem = "マイクを開けませんでした。(\(error.localizedDescription))"
             return
@@ -112,7 +119,25 @@ final class Dictation: NSObject, ObservableObject {
             request = nil
             return
         }
+        installObservers()
+        isSuspended = false
         isRecording = true
+    }
+
+    /// 書き取り用にマイクの通り道を整える。始めるときと、中断から
+    /// 取り戻すときの両方で使う。
+    private func configureSession() throws {
+        // 再生中でも書き取れるよう playAndRecord にする。mode を .voiceChat に
+        // するとエコー消去が働き、スピーカーで鳴っている教材の声を拾いにくくなる。
+        //
+        // .mixWithOthers は、別のアプリで調べ物をしながら口述するため。
+        // これが無いと、移った先のアプリが音を鳴らした瞬間にマイクを
+        // 取り上げられ、書き取りが途切れる。
+        let session = AVAudioSession.sharedInstance()
+        try session.setCategory(.playAndRecord, mode: .voiceChat,
+                                options: [.defaultToSpeaker, .allowBluetooth,
+                                          .allowBluetoothA2DP, .mixWithOthers])
+        try session.setActive(true)
     }
 
     /// 一つの区切りの認識を始める。黙って締め切られるたびに組み直して呼ぶ。
@@ -161,11 +186,13 @@ final class Dictation: NSObject, ObservableObject {
 
         // 使い手が止めた後なら、片付けは済んでいる
         guard isRecording else { return }
+        // 中断の扱いは合図の聞き役がやっている。ここで組み直すと二重になる
+        guard !isSuspended else { return }
 
-        // マイクが死んでいたら組み直しても聞こえない。文は残して止める。
+        // マイクや認識を失っていたら、組み直しても聞こえない。完了までは
+        // 諦めず、文を抱えたまま取り戻せる合図を待つ。
         guard engine.isRunning, recognizer?.isAvailable == true else {
-            problem = "聞き取りが途中で止まりました。ここまでの文は残っています。"
-            stop()
+            suspend()
             return
         }
         // 声も拾えないまますぐ切れるのが続くのは、認識そのものの不調
@@ -180,6 +207,99 @@ final class Dictation: NSObject, ObservableObject {
         startSegment()
     }
 
+    // MARK: - 中断と取り戻し
+
+    /// 中断と復帰の合図に耳を立てる。完了ボタンまで聞き続けるための備え。
+    private func installObservers() {
+        removeObservers()
+        let center = NotificationCenter.default
+        // 電話や Siri、他アプリの割り込み
+        observers.append(center.addObserver(
+            forName: AVAudioSession.interruptionNotification, object: nil, queue: .main
+        ) { [weak self] note in
+            self?.interruptionChanged(note)
+        })
+        // イヤホンの抜き差しなどで音の形が変わると engine は止まる。組み直して続ける
+        observers.append(center.addObserver(
+            forName: .AVAudioEngineConfigurationChange, object: engine, queue: .main
+        ) { [weak self] _ in
+            guard let self, self.isRecording else { return }
+            self.suspend()
+            self.attemptResume()
+        })
+        // 中断の終わりの知らせが来ないまま使い手がこのアプリへ戻ることがある。
+        // 戻ってきたのを機に取り戻しを試す
+        observers.append(center.addObserver(
+            forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.attemptResume()
+        })
+    }
+
+    private func removeObservers() {
+        observers.forEach { NotificationCenter.default.removeObserver($0) }
+        observers.removeAll()
+    }
+
+    private func interruptionChanged(_ note: Notification) {
+        guard let raw = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
+              let type = AVAudioSession.InterruptionType(rawValue: raw) else { return }
+        switch type {
+        case .began:
+            suspend()
+        case .ended:
+            // 「再開してよい」の印が付かない中断明けもある。マイクは書き取りの
+            // 要なので、印によらず取り戻しを試す。だめなら次の合図を待つ
+            attemptResume()
+        @unknown default:
+            break
+        }
+    }
+
+    /// マイクを取られた。ここまでの文を確定分へ移して認識を畳み、
+    /// 取り戻せる合図が来るまで待つ。使い手から見れば書き取りは続いたまま。
+    private func suspend() {
+        guard isRecording, !isSuspended else { return }
+        isSuspended = true
+        task?.cancel()
+        task = nil
+        request?.endAudio()
+        request = nil
+        committed = Self.join(committed, partial)
+        partial = ""
+        transcript = committed
+        if engine.isRunning { engine.stop() }
+        engine.inputNode.removeTap(onBus: 0)
+    }
+
+    /// 中断からの取り戻し。まだマイクが空いていなければ何もせず、次の合図を待つ。
+    private func attemptResume() {
+        guard isRecording, isSuspended else { return }
+        guard recognizer?.isAvailable == true else { return }
+        do {
+            try configureSession()
+        } catch {
+            return
+        }
+        let input = engine.inputNode
+        if !input.isVoiceProcessingEnabled {
+            try? input.setVoiceProcessingEnabled(true)
+        }
+        startSegment()
+        engine.prepare()
+        do {
+            try engine.start()
+        } catch {
+            task?.cancel()
+            task = nil
+            request = nil
+            input.removeTap(onBus: 0)
+            return
+        }
+        quickDeaths = 0
+        isSuspended = false
+    }
+
     /// 区切りごとに聞き取れた文をつなぐ。前の区切りが句読点で終わっていれば
     /// そのまま続け、そうでなければ空白を挟んで一言の切れ目を残す。
     private static func join(_ head: String, _ tail: String) -> String {
@@ -189,5 +309,15 @@ final class Dictation: NSObject, ObservableObject {
         if tail.isEmpty { return head }
         if let last = head.last, "。、!?!?…".contains(last) { return head + tail }
         return head + " " + tail
+    }
+}
+
+extension Dictation: SFSpeechRecognizerDelegate {
+    /// 認識が使えない時間を挟んでも、戻りしだい聞き取りを取り戻す。
+    func speechRecognizer(_ speechRecognizer: SFSpeechRecognizer, availabilityDidChange available: Bool) {
+        guard available else { return }
+        DispatchQueue.main.async { [weak self] in
+            self?.attemptResume()
+        }
     }
 }
