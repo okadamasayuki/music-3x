@@ -56,14 +56,43 @@ struct ImprovementListView: View {
         } message: {
             Text(errorMessage ?? "")
         }
-        .alert("内容を編集", isPresented: showEditBinding) {
-            TextField("内容", text: $editText, axis: .vertical)
-            Button("キャンセル", role: .cancel) { editTarget = nil }
-            Button("保存") {
-                if let target = editTarget { store.update(target.id, text: editText) }
-                editTarget = nil
-            }
+        // 声で入れたメモは数行になりがちで、アラートの1行欄では直しづらい。
+        // 全体を見渡しながら書き直せる広い欄をシートで出す。
+        .sheet(item: $editTarget) { _ in
+            editSheet
         }
+    }
+
+    // MARK: - 編集
+
+    @FocusState private var editFocused: Bool
+
+    private var editSheet: some View {
+        NavigationStack {
+            TextEditor(text: $editText)
+                .focused($editFocused)
+                .padding(.horizontal, 12)
+                .navigationTitle("内容を編集")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("キャンセル") { editTarget = nil }
+                    }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("保存") {
+                            if let target = editTarget { store.update(target.id, text: editText) }
+                            editTarget = nil
+                        }
+                        .disabled(editText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        .accessibilityIdentifier("saveImprovementEdit")
+                    }
+                }
+                .onAppear {
+                    // 開いたらすぐ書き直せるようにする。出た直後は焦点が入らないことがあるので一拍置く
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { editFocused = true }
+                }
+        }
+        .presentationDetents([.medium, .large])
     }
 
     // MARK: - 入力
@@ -282,8 +311,5 @@ struct ImprovementListView: View {
 
     private var showErrorBinding: Binding<Bool> {
         Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })
-    }
-    private var showEditBinding: Binding<Bool> {
-        Binding(get: { editTarget != nil }, set: { if !$0 { editTarget = nil } })
     }
 }
