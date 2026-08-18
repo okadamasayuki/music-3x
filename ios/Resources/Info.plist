@@ -22,6 +22,13 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<true/>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>改善メモを家の Mac の Claude Code へ渡すために、同じネットワークの中でだけ通信します。</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>聞きながら声で「覚えた」「お気に入り」と言うと、その場で印を付けます。設定で切っている間はマイクを使いません。</string>
 	<key>NSSpeechRecognitionUsageDescription</key>

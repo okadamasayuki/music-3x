@@ -16,7 +16,7 @@ settings:
     CODE_SIGN_STYLE: Automatic
     # 実機で動かすときはここに Apple Developer のチーム ID を入れる。
     # 空のままでもシミュレータでは動作する。
-    DEVELOPMENT_TEAM: ""
+    DEVELOPMENT_TEAM: "793W4MWZYT"
 
 targets:
   Music3x:
@@ -44,6 +44,10 @@ targets:
         # ロック画面操作とバックグラウンド再生に必須
         UIBackgroundModes:
           - audio
+        # 改善メモを家の Mac へ送るのに、同じ Wi-Fi の中だけで HTTP を使う
+        NSLocalNetworkUsageDescription: 改善メモを家の Mac の Claude Code へ渡すために、同じネットワークの中でだけ通信します。
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
         # 声で「覚えた」「お気に入り」と言って印を付けるために使う
         NSMicrophoneUsageDescription: 聞きながら声で「覚えた」「お気に入り」と言うと、その場で印を付けます。設定で切っている間はマイクを使いません。
         NSSpeechRecognitionUsageDescription: 声の合図を聞き分けるために使います。聞き取った言葉は印を付ける判定にだけ使い、どこにも送りません。

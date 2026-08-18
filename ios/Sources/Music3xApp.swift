@@ -6,6 +6,7 @@ struct Music3xApp: App {
     @StateObject private var player = PlayerEngine()
     @StateObject private var settings = AppSettings()
     @StateObject private var voice = VoiceCommands()
+    @StateObject private var improvements = ImprovementStore()
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
@@ -15,6 +16,7 @@ struct Music3xApp: App {
                 .environmentObject(player)
                 .environmentObject(settings)
                 .environmentObject(voice)
+                .environmentObject(improvements)
                 // 端末が夜間モードでも白地で使う。単語の一覧を長く眺める用途では
                 // 黒地より白地のほうが読みやすいという求めによる。
                 .preferredColorScheme(.light)

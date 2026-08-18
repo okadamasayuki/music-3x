@@ -7,7 +7,7 @@ struct RootView: View {
     @EnvironmentObject private var settings: AppSettings
     @EnvironmentObject private var voice: VoiceCommands
 
-    private enum Tab: Hashable { case library, phrases, settings }
+    private enum Tab: Hashable { case library, phrases, improve, settings }
 
     /// 帯より手前に重ねる画面。どちらもタブの帯まで覆う。
     private enum Opened: Equatable {
@@ -123,6 +123,13 @@ struct RootView: View {
             }
             .tabItem { Label("フレーズ", systemImage: "checklist") }
             .tag(Tab.phrases)
+
+            NavigationStack {
+                ImprovementListView()
+                    .safeAreaInset(edge: .bottom) { miniPlayer }
+            }
+            .tabItem { Label("改善", systemImage: "lightbulb") }
+            .tag(Tab.improve)
 
             NavigationStack {
                 SettingsView()

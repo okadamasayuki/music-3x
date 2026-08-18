@@ -38,6 +38,7 @@
 | `app.js` | 再生・倍速・字幕同期のロジック |
 | `sample.srt` | 動作確認用のサンプル字幕 |
 | `ios/` | iOS ネイティブ版(SwiftUI) |
+| `mac/` | 改善メモの受け口(iPhone から届いた要望で Claude Code を起動) |
 
 ## iOS 版
 
@@ -46,3 +47,31 @@
 iOS Safari では不安定な高倍速再生も安定して動きます。
 
 ビルド方法は [`ios/README.md`](ios/README.md) を参照してください。
+
+## 改善メモ(iOS 版の「改善」タブ)
+
+アプリを使っていて思いついた改善点を、その場で書き留めておくタブです。
+声で書き取るのが基本ですが、キーボードでも書けます。
+
+家に帰って Mac が点いているとき、項目を**左から右へスワイプ**すると、
+Mac の Terminal で Claude Code が立ち上がり、その要望の実装を始めます。
+
+### Mac 側の準備(一度だけ)
+
+```sh
+./mac/install.sh
+```
+
+これで受け口(`mac/improvement_server.py`、ポート 8917)がログイン時に
+自動で立ち上がるようになります。取り外すときは `./mac/install.sh --uninstall`。
+
+- ログ: `~/Library/Logs/music3x-improvements.log`
+- 届いた要望の控え: `~/.music3x-improvements/inbox.jsonl`
+- macOS のファイアウォールを使っている場合、初回に「python3 の着信接続を
+  許可しますか」と聞かれるので許可する
+- iPhone 側は初回送信時に「ローカルネットワーク」の許可を求められるので許可する
+
+送り先はアプリの設定タブ「改善メモの送り先」にあり、既定は
+`okadamasakinoMac-mini.local:8917` です。Mac の名前を変えたときはここを直します。
+
+同じ Wi-Fi の中だけで使う前提の仕組みで、外のネットワークには何も送りません。

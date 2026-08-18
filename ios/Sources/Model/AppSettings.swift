@@ -34,11 +34,19 @@ final class AppSettings: ObservableObject {
         didSet { store.set(voiceControl, forKey: Keys.voiceControl) }
     }
 
+    /// 改善メモの送り先。家の Mac の「ローカルホスト名:ポート」。
+    @Published var improveHost: String {
+        didSet { store.set(improveHost, forKey: Keys.improveHost) }
+    }
+
     /// 文字の大きさ。textSizes の何番目か。
     /// 端末側の文字サイズ設定に引きずられず、このアプリだけで決められるようにする。
     @Published var textSizeStep: Int {
         didSet { store.set(textSizeStep, forKey: Keys.textSizeStep) }
     }
+
+    /// 既定の送り先。自宅の Mac mini。設定タブで書き換えられる。
+    static let defaultImproveHost = "okadamasakinoMac-mini.local:8917"
 
     static let speedChoices: [Double] = [1, 1.25, 1.5, 1.75, 2, 2.5, 3, 3.5, 4]
     static let skipChoices: [Double] = [5, 10, 15, 20, 30]
@@ -69,6 +77,7 @@ final class AppSettings: ObservableObject {
         static let showTranslation = "showTranslation"
         static let textSizeStep = "textSizeStep"
         static let voiceControl = "voiceControl"
+        static let improveHost = "improveHost"
     }
 
     private let store: UserDefaults
@@ -84,6 +93,7 @@ final class AppSettings: ObservableObject {
         textSizeStep = (store.object(forKey: Keys.textSizeStep) as? Int) ?? Self.defaultTextSizeStep
         // 既定では切っておく。断りなくマイクを開かないため。
         voiceControl = (store.object(forKey: Keys.voiceControl) as? Bool) ?? false
+        improveHost = (store.object(forKey: Keys.improveHost) as? String) ?? Self.defaultImproveHost
     }
 
     func resetToDefaults() {
@@ -94,5 +104,6 @@ final class AppSettings: ObservableObject {
         showTranslation = true
         textSizeStep = Self.defaultTextSizeStep
         voiceControl = false
+        improveHost = Self.defaultImproveHost
     }
 }

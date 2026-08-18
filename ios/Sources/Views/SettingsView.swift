@@ -84,6 +84,21 @@ struct SettingsView: View {
         }
     }
 
+    /// 改善メモの送り先。家の Mac のローカルホスト名とポートを書いておく。
+    private var improveSection: some View {
+        Section {
+            TextField("ホスト名:ポート", text: $settings.improveHost)
+                .keyboardType(.URL)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .accessibilityIdentifier("improveHost")
+        } header: {
+            Text("改善メモの送り先")
+        } footer: {
+            Text("家の Mac の名前(システム設定 › 一般 › 共有の「ローカルホスト名」)とポート。Mac 側で一度 mac/install.sh を実行しておくと、改善タブの項目をスワイプしたときに Claude Code が実装を始めます。")
+        }
+    }
+
     var body: some View {
         Form {
             textSizeSection
@@ -110,6 +125,7 @@ struct SettingsView: View {
                 }
             }
             voiceSection
+            improveSection
             expirySection
         }
         .navigationTitle("設定")
