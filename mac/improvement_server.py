@@ -2,17 +2,19 @@
 """iPhone の改善メモの受け口。
 
 アプリの「改善」タブで項目をスワイプすると、ここへ HTTP で届く。
-届いた要望を .command ファイルに包んで Terminal で開き、
-リポジトリを作業場所にした claude(Claude Code)に実装させる。
+届いた要望は受信箱(~/.music3x-improvements/inbox.jsonl)へ記録するだけにし、
+実装は、受信箱を見張っている常駐の Claude Code セッションが引き受ける。
 
-osascript で Terminal を操るのではなく .command を open する形にしてある。
-osascript だと初回に「自動化」の許可ダイアログが出て、家に帰る前に
-スワイプしても黙って失敗するため。open ならその許可が要らない。
+以前は要望ごとに Terminal で新しい claude を立ち上げていたが、
+セッションごとにモデルの確認や許可のやり直しが要るうえ、push や
+スマホへの入れ直しまでは面倒を見ず、同時に動くと衝突もするのでやめた。
+その形に戻したいときは install.sh --terminal で入れ直す。
 
 導入は install.sh を一度実行するだけ。ログイン時に自動で立ち上がる。
 """
 
 import json
+import os
 import shlex
 import subprocess
 import sys
@@ -107,16 +109,19 @@ class Handler(BaseHTTPRequestHandler):
                 ensure_ascii=False,
             ) + "\n")
 
-        # 動作確認用。ヘッダを付けると Terminal は開かず、受け取りだけ試せる。
+        # 動作確認用。ヘッダを付けると記録だけで、その先は何もしない。
         if self.headers.get("X-Dry-Run"):
             self._reply(200, {"ok": True, "dryRun": True})
             return
 
-        try:
-            launch_claude(text, created_at)
-        except Exception as error:  # noqa: BLE001 — 失敗の中身をそのまま返す
-            self._reply(500, {"ok": False, "error": str(error)})
-            return
+        # ふだんは受信箱への記録だけ。見張り役のセッションが拾って実装する。
+        # Terminal で新しい claude を立ち上げる古い形は、選んだときだけ。
+        if os.environ.get("MUSIC3X_OPEN_TERMINAL"):
+            try:
+                launch_claude(text, created_at)
+            except Exception as error:  # noqa: BLE001 — 失敗の中身をそのまま返す
+                self._reply(500, {"ok": False, "error": str(error)})
+                return
         self._reply(200, {"ok": True})
 
     def _reply(self, status: int, payload: dict) -> None:

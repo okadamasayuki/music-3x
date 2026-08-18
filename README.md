@@ -54,7 +54,13 @@ iOS Safari では不安定な高倍速再生も安定して動きます。
 声で書き取るのが基本ですが、キーボードでも書けます。
 
 家に帰って Mac が点いているとき、項目を**左から右へスワイプ**すると、
-Mac の Terminal で Claude Code が立ち上がり、その要望の実装を始めます。
+要望が Mac の受信箱(`~/.music3x-improvements/inbox.jsonl`)に入り、
+受信箱を見張っている常駐の Claude Code セッションが実装 →
+iPhone への入れ直し → GitHub への push まで引き受けます。
+
+要望ごとに Terminal で新しい claude を立ち上げる方式も
+`./mac/install.sh --terminal` で選べますが、セッションごとに許可の
+やり直しが要り、push や入れ直しは自動では行われません。
 
 ### Mac 側の準備(一度だけ)
 
@@ -64,6 +70,9 @@ Mac の Terminal で Claude Code が立ち上がり、その要望の実装を�
 
 これで受け口(`mac/improvement_server.py`、ポート 8917)がログイン時に
 自動で立ち上がるようになります。取り外すときは `./mac/install.sh --uninstall`。
+受け口は記録するだけなので、実装まで進めるには Claude Code のセッションで
+受信箱を見張らせておきます(このリポジトリで作業している常駐セッションに
+「改善要望の見張りを再開して」と頼めば設定されます)。
 
 - ログ: `~/Library/Logs/music3x-improvements.log`
 - 届いた要望の控え: `~/.music3x-improvements/inbox.jsonl`

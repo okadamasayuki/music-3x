@@ -4,6 +4,7 @@
 #
 #   導入:   ./install.sh
 #   取り外し: ./install.sh --uninstall
+#   旧方式:  ./install.sh --terminal (要望ごとに Terminal で claude を立ち上げる)
 #
 # ログは ~/Library/Logs/music3x-improvements.log に出る。
 
@@ -26,6 +27,17 @@ if [[ "${1:-}" == "--uninstall" ]]; then
   exit 0
 fi
 
+# 旧方式(要望ごとに Terminal で claude を立ち上げる)を選んだときだけ環境変数を立てる
+TERMINAL_MODE=""
+if [[ "${1:-}" == "--terminal" ]]; then
+  TERMINAL_MODE="
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>MUSIC3X_OPEN_TERMINAL</key>
+		<string>1</string>
+	</dict>"
+fi
+
 mkdir -p "$HOME/Library/LaunchAgents" "$RUN_DIR"
 cp "$SCRIPT_DIR/improvement_server.py" "$RUN_DIR/improvement_server.py"
 
@@ -43,7 +55,7 @@ cat > "$PLIST" <<PLIST
 		<string>$REPO_DIR</string>
 	</array>
 	<key>RunAtLoad</key>
-	<true/>
+	<true/>$TERMINAL_MODE
 	<key>KeepAlive</key>
 	<true/>
 	<key>StandardOutPath</key>
