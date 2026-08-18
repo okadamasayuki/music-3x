@@ -13,8 +13,9 @@ struct ImprovementListView: View {
     @EnvironmentObject private var voice: VoiceCommands
     @StateObject private var dictation = Dictation()
 
-    /// 入力欄の下書き。
-    @State private var draft = ""
+    /// 入力欄の下書き。アプリが途中で落ちても書きかけが消えないよう、
+    /// 端末に置いて、書くたび・聞き取るたびに保存する。
+    @AppStorage("improveDraft") private var draft = ""
     /// 書き取りを始めたときに入力欄へすでにあった文。聞き取りはこの後ろへ足す。
     @State private var dictationBase = ""
     /// いま Mac へ送っている最中の項目。行に回転を出して二度押しを防ぐ。
@@ -39,7 +40,9 @@ struct ImprovementListView: View {
         .navigationTitle("改善")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { checkReachability() }
-        .onDisappear { stopDictationIfNeeded() }
+        // 他のタブや画面を見に行っても書き取りは止めない。アプリの外へ
+        // 出ても続けるのと同じ理由で、調べ物を挟む長い口述のため。
+        // 止まるのは完了ボタンを押したときだけ。
         // 聞き取りの途中経過を入力欄へ流し込む。手で書いた分の後ろに足す。
         .onReceive(dictation.$transcript) { text in
             guard !text.isEmpty else { return }
@@ -139,6 +142,14 @@ struct ImprovementListView: View {
                     .font(.footnote)
                     .foregroundStyle(.red)
             }
+
+            // 電話などでマイクを失っている間、無言で待つと壊れたように
+            // 見える。文が残っていることと、勝手に続きが始まることを添える。
+            if dictation.isSuspended {
+                Text("マイクをほかに取られています。空きしだい続きを聞き取ります。ここまでの文は残っています。")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
         } footer: {
             connectionFooter
         }
@@ -218,6 +229,9 @@ struct ImprovementListView: View {
     private func toggleDictation() {
         if dictation.isRecording {
             dictation.stop()
+            // 表示は途中経過の流し込みに任せているが、別のタブに居た間は
+            // 流し込みが届いていない。最後の全文をここで写し取る。
+            syncDraftFromDictation()
         } else {
             // マイクは一つ。覚えた印の聞き役が動いていたら、書き取りの間だけ譲ってもらう
             voice.stop()
@@ -240,8 +254,16 @@ struct ImprovementListView: View {
         }
     }
 
+    /// 聞き取れている全文を下書きへ写す。
+    private func syncDraftFromDictation() {
+        let text = dictation.transcript
+        guard !text.isEmpty else { return }
+        draft = dictationBase.isEmpty ? text : dictationBase + "\n" + text
+    }
+
     private func addDraft() {
         stopDictationIfNeeded()
+        syncDraftFromDictation()
         store.add(draft)
         draft = ""
         dictationBase = ""

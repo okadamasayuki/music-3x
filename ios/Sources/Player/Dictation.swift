@@ -165,15 +165,30 @@ final class Dictation: NSObject, ObservableObject {
                 // いまの区切りのものだけを受け取る。
                 guard let self, let request, request === self.request else { return }
                 if let result {
-                    self.partial = result.bestTranscription.formattedString
-                    if !self.partial.isEmpty { self.quickDeaths = 0 }
-                    self.transcript = Self.join(self.committed, self.partial)
+                    self.absorb(result.bestTranscription.formattedString)
                 }
                 if error != nil || (result?.isFinal ?? false) {
                     self.segmentEnded()
                 }
             }
         }
+    }
+
+    /// 途中経過を取り込む。
+    ///
+    /// 認識は同じ区切りの中でも、発話の切れ目で仕切り直すことがある。
+    /// そのとき途中経過は前触れなく短くなり、締め切りの合図も来ないため、
+    /// 区切りの積み上げだけでは前の発話の文がそのまま消えていた。
+    /// 大きく縮んだら仕切り直しとみなし、前の発話ぶんを確定分へ積んでから
+    /// 新しい途中経過を受け取る。言い直しでも多少は縮むので、それとの
+    /// 見分けとして、半分を切るほど縮んだときだけ仕切り直しと扱う。
+    private func absorb(_ text: String) {
+        if !partial.isEmpty, text.count < partial.count / 2, !partial.hasPrefix(text) {
+            committed = Self.join(committed, partial)
+        }
+        partial = text
+        if !partial.isEmpty { quickDeaths = 0 }
+        transcript = Self.join(committed, partial)
     }
 
     /// 区切りが締め切られた。文を確定分へ移し、続けられるなら組み直す。
