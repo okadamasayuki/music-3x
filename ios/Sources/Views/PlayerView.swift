@@ -197,18 +197,22 @@ struct PlayerView: View {
             }
             .disabled(!isLive || player.effectiveDuration <= 0)
 
-            HStack {
-                Text(TimeFormatter.string(from: displayedTime))
-                    .accessibilityIdentifier("elapsed")
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
-                Spacer()
+            // リピートは重ねて置き、左右の時刻の幅に引きずられず画面の
+            // 中央に固定する。Spacer で挟む形だと時刻の桁数の差だけ
+            // 中心からずれ、真下の再生ボタンと縦が揃わない。
+            ZStack {
+                HStack {
+                    Text(TimeFormatter.string(from: displayedTime))
+                        .accessibilityIdentifier("elapsed")
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text(TimeFormatter.string(from: player.effectiveDuration))
+                        .accessibilityIdentifier("duration")
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                }
                 repeatTrackButton
-                Spacer()
-                Text(TimeFormatter.string(from: player.effectiveDuration))
-                    .accessibilityIdentifier("duration")
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
             }
         }
     }
