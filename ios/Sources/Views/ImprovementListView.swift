@@ -114,7 +114,10 @@ struct ImprovementListView: View {
                             .padding(.vertical, 2)
                             .id("dictationTail")
                     }
-                    .frame(height: 160)
+                    // ふだんの入力欄(3 行ほど)と同じ背丈に合わせる。
+                    // 録音に切り替わった途端に欄がぐっと伸びるのは落ち着かない
+                    // という求め。最新の行へ送り続けるので、この高さで足りる。
+                    .frame(height: 72)
                     .onChange(of: draft) { _ in
                         proxy.scrollTo("dictationTail", anchor: .bottom)
                     }
@@ -141,6 +144,19 @@ struct ImprovementListView: View {
                 .accessibilityIdentifier("dictationToggle")
 
                 Spacer()
+
+                // 言い直したくなったときに、書きかけを一息で捨てる。
+                if !draft.isEmpty {
+                    Button(action: clearDraft) {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.body)
+                            .foregroundStyle(.secondary)
+                            .frame(minWidth: 30, minHeight: 28)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("書きかけを全部消す")
+                    .accessibilityIdentifier("clearDraft")
+                }
 
                 Button("追加", action: addDraft)
                     .buttonStyle(.bordered)
@@ -274,6 +290,15 @@ struct ImprovementListView: View {
             // 録音のために変えた音の設定を、再生だけの形へ戻す
             player.configureAudioSession()
         }
+    }
+
+    /// 書きかけを全部捨てる。聞き取りの最中なら、聞き取りは続けたまま
+    /// 文だけを空にして、言い直しにすぐ入れるようにする。
+    private func clearDraft() {
+        draft = ""
+        dictationBase = ""
+        dictation.clearText()
+        UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
     }
 
     /// 聞き取れている全文を下書きへ写す。

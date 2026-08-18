@@ -174,6 +174,22 @@ final class Dictation: NSObject, ObservableObject {
         }
     }
 
+    /// 聞き取れている文を捨てて、聞き取りそのものは続ける。言い直したいとき用。
+    ///
+    /// いまの区切りは打ち切って組み直す。生かしたままだと、話しかけの
+    /// 発話の途中経過がまた丸ごと届き、消したはずの文が戻ってくるため。
+    func clearText() {
+        committed = ""
+        partial = ""
+        transcript = ""
+        guard isRecording, !isSuspended else { return }
+        task?.cancel()
+        task = nil
+        request?.endAudio()
+        request = nil
+        startSegment()
+    }
+
     /// 途中経過を取り込む。
     ///
     /// 認識は同じ区切りの中でも、発話の切れ目で仕切り直すことがある。
