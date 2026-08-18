@@ -25,8 +25,12 @@ struct ImprovementListView: View {
     /// 編集中の項目。
     @State private var editTarget: Improvement?
     @State private var editText = ""
-    /// Mac の受け口に届くか。nil はまだ調べていない。
+    /// Mac の受け口に届くか。nil はまだ一度も調べていない。
+    /// 調べ直している間も前の値を保つ。表示の幅が変わると、右上の
+    /// 表示に押されてタイトルが動いて見えるため。
     @State private var reachable: Bool?
+    /// 再接続の矢印の回転角。押すたびに一回転させ、押せたことを見せる。
+    @State private var spinAngle = 0.0
 
     var body: some View {
         List {
@@ -202,7 +206,7 @@ struct ImprovementListView: View {
     /// 並べると毎回目に入って邪魔だという求めで、隅へ寄せた。
     private var connectionStatus: some View {
         Button(action: checkReachability) {
-            HStack(spacing: 5) {
+            HStack(spacing: 6) {
                 Circle()
                     .fill(reachable == true ? Color.green : reachable == false ? Color.orange : Color.gray)
                     .frame(width: 8, height: 8)
@@ -210,8 +214,11 @@ struct ImprovementListView: View {
                     .font(.footnote)
                 Image(systemName: "arrow.clockwise")
                     .font(.caption2.weight(.semibold))
+                    .rotationEffect(.degrees(spinAngle))
             }
             .foregroundStyle(.secondary)
+            // 端に張り付くと窮屈なので、両側に一息ぶんの余白を取る
+            .padding(.horizontal, 8)
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(connectionLabel)。タップで再接続")
@@ -351,7 +358,9 @@ struct ImprovementListView: View {
     }
 
     private func checkReachability() {
-        reachable = nil
+        // 押した手応えは矢印の一回転で返す。文言を「探しています…」に
+        // 入れ替える形だと、幅が変わってタイトルまで動いて見える。
+        withAnimation(.linear(duration: 0.7)) { spinAngle += 360 }
         let host = settings.improveHost
         Task { @MainActor in
             reachable = await MacLink.ping(host: host)
