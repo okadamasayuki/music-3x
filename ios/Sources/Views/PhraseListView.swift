@@ -39,6 +39,7 @@ struct PhraseListView: View {
                     }
                 }
                 .listStyle(.insetGrouped)
+                .tightTop()
             }
         }
         .navigationTitle("フレーズ")

@@ -33,14 +33,7 @@ struct ImprovementListView: View {
     @State private var spinAngle = 0.0
 
     var body: some View {
-        // タイトルの帯と入力の枠の間を詰める。標準のままだと最初の節の
-        // 上に大きな空きが入る。新しい iOS には正式な口があるので使い、
-        // 古い iOS では同じ見た目になるぶんだけ上へ寄せる。
-        if #available(iOS 17.0, *) {
-            listContent.contentMargins(.top, 6, for: .scrollContent)
-        } else {
-            listContent.padding(.top, -16)
-        }
+        listContent.tightTop()
     }
 
     private var listContent: some View {
@@ -216,7 +209,12 @@ struct ImprovementListView: View {
     /// 画面の右上に置き、押せばそのまま再接続になる。入力欄の近くに
     /// 並べると毎回目に入って邪魔だという求めで、隅へ寄せた。
     private var connectionStatus: some View {
-        Button(action: checkReachability) {
+        Button {
+            // 回すのは押したときだけ。タブを開き直したときの自動の確かめ
+            // でも回ると、勝手に何かが動いたように見えて落ち着かない。
+            withAnimation(.linear(duration: 0.7)) { spinAngle += 360 }
+            checkReachability()
+        } label: {
             HStack(spacing: 6) {
                 Circle()
                     .fill(reachable == true ? Color.green : reachable == false ? Color.orange : Color.gray)
@@ -368,10 +366,9 @@ struct ImprovementListView: View {
         }
     }
 
+    /// 静かに調べ直す。文言を「探しています…」へ入れ替える形にしないのは、
+    /// 幅が変わってタイトルまで動いて見えるため。結果だけを色と言葉に映す。
     private func checkReachability() {
-        // 押した手応えは矢印の一回転で返す。文言を「探しています…」に
-        // 入れ替える形だと、幅が変わってタイトルまで動いて見える。
-        withAnimation(.linear(duration: 0.7)) { spinAngle += 360 }
         let host = settings.improveHost
         Task { @MainActor in
             reachable = await MacLink.ping(host: host)

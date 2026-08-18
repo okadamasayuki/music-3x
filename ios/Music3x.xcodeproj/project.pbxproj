@@ -34,12 +34,14 @@
 		E2C1D8C721EFF7D2C5F3C1D5 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A3A59C2686651B2E59D97D /* RootView.swift */; };
 		F1B100560829161A29151B3F /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 238C0192E608DC061F6D8E2A /* LibraryView.swift */; };
 		F351291D6EFA126FE83CE340 /* TranslationToggle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21DCDD447820262337CE6794 /* TranslationToggle.swift */; };
+		FC94B4411FD9A3A77D3F62C2 /* TightTop.swift in Sources */ = {isa = PBXBuildFile; fileRef = 179DAE72CD83F62E190C04DA /* TightTop.swift */; };
 		FFB1D73E0903C5C5ED657CDA /* MacLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9EC205791C02201DC0E5A6F0 /* MacLink.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		02D2EB317F865EDD722D8F13 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		0D9B522BD08B711725C2FED3 /* InstallExpiry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstallExpiry.swift; sourceTree = "<group>"; };
+		179DAE72CD83F62E190C04DA /* TightTop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TightTop.swift; sourceTree = "<group>"; };
 		1C2B7B265A9C3F98F7720D27 /* ImprovementStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImprovementStore.swift; sourceTree = "<group>"; };
 		21DCDD447820262337CE6794 /* TranslationToggle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranslationToggle.swift; sourceTree = "<group>"; };
 		238C0192E608DC061F6D8E2A /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
@@ -146,6 +148,7 @@
 				F1A3A59C2686651B2E59D97D /* RootView.swift */,
 				F1D50B8DFB7B6FAA98557EC5 /* SettingsView.swift */,
 				651095C6AB565A4B8B7197D3 /* SpeedPresetRow.swift */,
+				179DAE72CD83F62E190C04DA /* TightTop.swift */,
 				EBC1A8CEAF637D2338BC6374 /* TimeFormatter.swift */,
 				B0A7C444C20CC4B321572CDB /* TranscriptView.swift */,
 				21DCDD447820262337CE6794 /* TranslationToggle.swift */,
@@ -246,6 +249,7 @@
 				6907FA5C8A156256F1866130 /* SpeedPresetRow.swift in Sources */,
 				892508D7328267F6238A1304 /* SubtitleCue.swift in Sources */,
 				3B8560EF64AE76541364162B /* SubtitleGroup.swift in Sources */,
+				FC94B4411FD9A3A77D3F62C2 /* TightTop.swift in Sources */,
 				97D8A32E3A1E1D57AD0BE32E /* TimeFormatter.swift in Sources */,
 				1EF9180B461651CFF0C4A64C /* Track.swift in Sources */,
 				5B438BC6E095BF1BB584BD11 /* TranscriptView.swift in Sources */,

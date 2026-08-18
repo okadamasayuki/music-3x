@@ -107,6 +107,7 @@ struct LibraryView: View {
             }
         }
         .listStyle(.insetGrouped)
+        .tightTop()
     }
 
     private func rowButton(for track: Track) -> some View {

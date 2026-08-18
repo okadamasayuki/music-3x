@@ -115,6 +115,7 @@ struct SettingsView: View {
             // 既定値(AppSettings.defaultImproveHost)を直して入れ直せば足りる。
             expirySection
         }
+        .tightTop()
         .navigationTitle("設定")
         .navigationBarTitleDisplayMode(.inline)
     }
