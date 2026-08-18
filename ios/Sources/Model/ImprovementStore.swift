@@ -5,7 +5,8 @@ struct Improvement: Identifiable, Codable, Equatable {
     var id = UUID()
     var text: String
     var createdAt = Date()
-    /// Mac へ送って実装が始まった日時。まだ送っていなければ nil。
+    /// 昔の保存にだけ残っている「送った日時」。いまは送れた項目を
+    /// その場で消すので、新しく付くことはない。読み込みのために残す。
     var sentAt: Date?
 }
 
@@ -28,11 +29,6 @@ final class ImprovementStore: ObservableObject {
         load()
     }
 
-    /// まだ送っていない項目。新しいものが上。
-    var pending: [Improvement] { items.filter { $0.sentAt == nil } }
-    /// 送信済みの項目。実装されたかを後で見返すために残す。
-    var sent: [Improvement] { items.filter { $0.sentAt != nil } }
-
     func add(_ text: String) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
@@ -52,18 +48,15 @@ final class ImprovementStore: ObservableObject {
         save()
     }
 
-    func markSent(_ id: UUID) {
-        guard let index = items.firstIndex(where: { $0.id == id }) else { return }
-        items[index].sentAt = Date()
-        save()
-    }
-
     // MARK: - 永続化
 
     private func load() {
         guard let data = try? Data(contentsOf: fileURL),
               let decoded = try? JSONDecoder().decode([Improvement].self, from: data) else { return }
-        items = decoded
+        // 送信済みのまま残っていた項目は、ここで片付ける。実装の済んだものを
+        // 一覧に置いておかない、という求めによる。控えは Mac 側の受信箱にある。
+        items = decoded.filter { $0.sentAt == nil }
+        if items.count != decoded.count { save() }
     }
 
     private func save() {

@@ -30,8 +30,7 @@ struct ImprovementListView: View {
     var body: some View {
         List {
             inputSection
-            if !store.pending.isEmpty { pendingSection }
-            if !store.sent.isEmpty { sentSection }
+            if !store.items.isEmpty { pendingSection }
         }
         .listStyle(.insetGrouped)
         // 入力欄の外を触るかスクロールしたら、キーボードを下げて一覧を見せる
@@ -171,7 +170,7 @@ struct ImprovementListView: View {
 
     private var pendingSection: some View {
         Section("これから") {
-            ForEach(store.pending) { item in
+            ForEach(store.items) { item in
                 pendingRow(item)
             }
         }
@@ -212,46 +211,6 @@ struct ImprovementListView: View {
             }
         }
         .accessibilityIdentifier("pendingImprovement")
-    }
-
-    // MARK: - 送信済みの項目
-
-    private var sentSection: some View {
-        Section("実装へ送った項目") {
-            ForEach(store.sent) { item in
-                HStack(spacing: 10) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(item.text)
-                            .foregroundStyle(.secondary)
-                        if let sentAt = item.sentAt {
-                            Text("送信 \(sentAt, format: .dateTime.month().day().hour().minute())")
-                                .font(.caption)
-                                .foregroundStyle(.tertiary)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    if sendingIDs.contains(item.id) {
-                        ProgressView()
-                    }
-                }
-                // うまく実装されなかったときに、同じ要望をもう一度送れるようにしておく
-                .swipeActions(edge: .leading) {
-                    Button {
-                        send(item)
-                    } label: {
-                        Label("もう一度", systemImage: "arrow.counterclockwise")
-                    }
-                    .tint(.blue)
-                }
-                .swipeActions(edge: .trailing) {
-                    Button(role: .destructive) {
-                        store.remove(item.id)
-                    } label: {
-                        Label("削除", systemImage: "trash")
-                    }
-                }
-            }
-        }
     }
 
     // MARK: - 操作
@@ -296,7 +255,9 @@ struct ImprovementListView: View {
         Task { @MainActor in
             do {
                 try await MacLink.send(item, host: host)
-                store.markSent(item.id)
+                // 送れた項目はその場で消す。実装の済んだものを一覧に
+                // 残さない、という求めによる。届いた控えは Mac 側にある。
+                store.remove(item.id)
                 reachable = true
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
             } catch {
