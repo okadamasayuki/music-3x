@@ -8,8 +8,6 @@ struct TranscriptView: View {
 
     /// 覚えた印の変更を保存するために呼び出し側へ渡す
     var onToggleLearned: (Int, Bool) -> Void
-    /// お気に入りの変更も同じく呼び出し側で保存する
-    var onToggleFavorite: (Int, Bool) -> Void
 
     @State private var isFollowing = true
 
@@ -35,18 +33,12 @@ struct TranscriptView: View {
                                 // 項目が再生中なら、英文も訳もまとめて強調する
                                 isPlaying: isPlaying(group),
                                 isLearned: player.learnedGroups.contains(group.id),
-                                isFavorite: player.favoriteGroups.contains(group.id),
-                                onPlayLine: { line in
-                                    guard let first = line.cueIndices.first,
-                                          player.cues.indices.contains(first) else { return }
-                                    player.seek(to: player.cues[first].start)
+                                onPlay: {
+                                    player.seek(to: group.start)
                                     player.play()
                                 },
                                 onToggleLearned: {
                                     onToggleLearned(group.id, !player.learnedGroups.contains(group.id))
-                                },
-                                onToggleFavorite: {
-                                    onToggleFavorite(group.id, !player.favoriteGroups.contains(group.id))
                                 }
                             )
                             .id(group.id)
@@ -126,6 +118,7 @@ struct TranscriptView: View {
 }
 
 /// 教材の 1 項目分。数行の字幕と「覚えた」印をひとまとまりで扱う。
+/// どこを一度押しても覚えた印が入れ替わり、二度続けて押すと頭から聞き直せる。
 private struct GroupBlock: View {
     let group: SubtitleGroup
     /// 同じ文の読み直しはまとめてあるので、1 項目でも数行しか出ない
@@ -134,62 +127,49 @@ private struct GroupBlock: View {
     let textSize: DynamicTypeSize
     let isPlaying: Bool
     let isLearned: Bool
-    let isFavorite: Bool
-    let onPlayLine: (TranscriptLine) -> Void
+    let onPlay: () -> Void
     let onToggleLearned: () -> Void
-    let onToggleFavorite: () -> Void
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
-            Button(action: onToggleLearned) {
-                Image(systemName: isLearned ? "checkmark.circle.fill" : "circle")
-                    .font(.title3)
-                    .foregroundStyle(isLearned ? Color.accentColor : Color.secondary.opacity(0.5))
-            }
-            .buttonStyle(.plain)
-            .padding(.top, 1)
-            .accessibilityLabel(isLearned
-                ? "\(group.id + 1) 番目の項目の覚えた印を外す"
-                : "\(group.id + 1) 番目の項目を覚えた")
+            // 丸印は状態の表示。押す場所はどこでもよいので、ここはただの絵にする
+            Image(systemName: isLearned ? "checkmark.circle.fill" : "circle")
+                .font(.title3)
+                .foregroundStyle(isLearned ? Color.accentColor : Color.secondary.opacity(0.5))
+                .padding(.top, 1)
 
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(lines) { line in
-                    CueRow(text: line.text, isCurrent: isPlaying, onPlay: { onPlayLine(line) })
+                    CueRow(text: line.text, isCurrent: isPlaying)
                 }
             }
             // 大きさを変えるのは英文と訳だけ。印や操作の類はそのまま。
             .dynamicTypeSize(textSize)
             .opacity(isLearned ? 0.4 : 1)
-
-            Button(action: onToggleFavorite) {
-                Image(systemName: isFavorite ? "star.fill" : "star")
-                    .font(.subheadline)
-                    .foregroundStyle(isFavorite ? Color.yellow : Color.secondary.opacity(0.3))
-            }
-            .buttonStyle(.plain)
-            .padding(.top, 3)
-            .accessibilityLabel(isFavorite
-                ? "\(group.id + 1) 番目の項目をお気に入りから外す"
-                : "\(group.id + 1) 番目の項目をお気に入りに入れる")
         }
         .padding(.vertical, 3)
         .background(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(isPlaying ? Color.accentColor.opacity(0.12) : Color.clear)
         )
+        // 余白も含めて、項目のどこを押しても効くようにする
+        .contentShape(Rectangle())
+        // 二度押しを先に並べる。逆だと一度押しが先に取られて二度押しが効かない
+        .onTapGesture(count: 2, perform: onPlay)
+        .onTapGesture(perform: onToggleLearned)
         // 再生中の項目を外から特定できるようにしておく(表示と音声のずれを検査するため)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier(isPlaying ? "currentGroup" : "group")
+        .accessibilityLabel("\(group.id + 1) 番目の項目")
+        .accessibilityHint(isLearned ? "押すと覚えた印を外します" : "押すと覚えた印を付けます")
+        .accessibilityAction(named: "頭から再生", onPlay)
     }
 }
 
-/// 字幕 1 行。二度続けて押すと、その行から再生する。
-/// 一度押しでは動かさない。読み返しでスクロールしている最中に
-/// 触れただけで再生位置が飛ぶと邪魔になるため。
+/// 字幕 1 行。押した扱いは項目側でまとめて受ける。
 private struct CueRow: View {
     let text: String
     let isCurrent: Bool
-    let onPlay: () -> Void
 
     var body: some View {
         Text(text)
@@ -201,11 +181,5 @@ private struct CueRow: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.vertical, 1)
             .padding(.horizontal, 6)
-            .contentShape(Rectangle())
-            .onTapGesture(count: 2, perform: onPlay)
-            // 画面を見ずに操作する場合のために、読み上げからは一度の操作で実行できるようにする
-            .accessibilityAddTraits(.isButton)
-            .accessibilityHint("二回続けて押すと、ここから再生します")
-            .accessibilityAction(named: "ここから再生", onPlay)
     }
 }

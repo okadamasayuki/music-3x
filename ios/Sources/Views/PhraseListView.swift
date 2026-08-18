@@ -74,14 +74,13 @@ struct PhraseDetailView: View {
     @EnvironmentObject private var settings: AppSettings
 
     private enum Filter: String, CaseIterable, Identifiable {
-        case all, unlearned, learned, favorite
+        case all, unlearned, learned
         var id: String { rawValue }
     }
 
     @State private var cues: [SubtitleCue] = []
     @State private var allGroups: [SubtitleGroup] = []
     @State private var learned: Set<Int> = []
-    @State private var favorites: Set<Int> = []
     @State private var filter: Filter = .all
 
     private var groups: [SubtitleGroup] {
@@ -89,7 +88,6 @@ struct PhraseDetailView: View {
         case .all: return allGroups
         case .unlearned: return allGroups.filter { !learned.contains($0.id) }
         case .learned: return allGroups.filter { learned.contains($0.id) }
-        case .favorite: return allGroups.filter { favorites.contains($0.id) }
         }
     }
 
@@ -127,12 +125,6 @@ struct PhraseDetailView: View {
                 Text("\(learned.count) / \(allGroups.count)")
                     .font(.subheadline.monospacedDigit())
                     .foregroundStyle(.secondary)
-                if !favorites.isEmpty {
-                    Label("\(favorites.count)", systemImage: "star.fill")
-                        .font(.subheadline.monospacedDigit())
-                        .foregroundStyle(.yellow)
-                        .labelStyle(.titleAndIcon)
-                }
                 Spacer()
                 TranslationToggle()
             }
@@ -144,7 +136,6 @@ struct PhraseDetailView: View {
                 Text("すべて").tag(Filter.all)
                 Text("未習").tag(Filter.unlearned)
                 Text("習得済み").tag(Filter.learned)
-                Image(systemName: "star.fill").tag(Filter.favorite)
             }
             .pickerStyle(.segmented)
         }
@@ -158,21 +149,14 @@ struct PhraseDetailView: View {
 
     private func row(for group: SubtitleGroup) -> some View {
         let isLearned = learned.contains(group.id)
-        let isFavorite = favorites.contains(group.id)
         let lines = displayLines(of: group)
 
         return HStack(alignment: .top, spacing: 10) {
-            Button {
-                setLearned(group.id, !isLearned)
-            } label: {
-                Image(systemName: isLearned ? "checkmark.circle.fill" : "circle")
-                    .font(.title3)
-                    .foregroundStyle(isLearned ? Color.accentColor : Color.secondary.opacity(0.5))
-                    .padding(.top, 1)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(isLearned ? "覚えた印を外す" : "覚えた印を付ける")
+            // 丸印は状態の表示。押す場所はどこでもよいので、ここはただの絵にする
+            Image(systemName: isLearned ? "checkmark.circle.fill" : "circle")
+                .font(.title3)
+                .foregroundStyle(isLearned ? Color.accentColor : Color.secondary.opacity(0.5))
+                .padding(.top, 1)
 
             VStack(alignment: .leading, spacing: 2) {
                 ForEach(Array(lines.enumerated()), id: \.element.id) { index, line in
@@ -186,21 +170,13 @@ struct PhraseDetailView: View {
             // 大きさを変えるのは英文と訳だけ。印や見出しまで動くと画面が崩れる。
             .dynamicTypeSize(settings.textSize)
             .opacity(isLearned ? 0.45 : 1)
-
-            Button {
-                setFavorite(group.id, !isFavorite)
-            } label: {
-                Image(systemName: isFavorite ? "star.fill" : "star")
-                    .font(.subheadline)
-                    .foregroundStyle(isFavorite ? Color.yellow : Color.secondary.opacity(0.35))
-                    .padding(.top, 3)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(isFavorite ? "お気に入りから外す" : "お気に入りに入れる")
         }
-        .accessibilityElement(children: .contain)
+        // 余白も含めて、行のどこを押しても印が入れ替わるようにする
+        .contentShape(Rectangle())
+        .onTapGesture { setLearned(group.id, !isLearned) }
+        .accessibilityElement(children: .combine)
         .accessibilityIdentifier("phraseRow")
+        .accessibilityHint(isLearned ? "押すと覚えた印を外します" : "押すと覚えた印を付けます")
     }
 
     private func displayLines(of group: SubtitleGroup) -> [TranscriptLine] {
@@ -219,7 +195,6 @@ struct PhraseDetailView: View {
         cues = SubtitleParser.parse(content)
         allGroups = cues.grouped()
         learned = library.learnedGroups(for: track.id, cueCount: cues.count)
-        favorites = library.favoriteGroups(for: track.id, cueCount: cues.count)
     }
 
     private func setLearned(_ group: Int, _ value: Bool) {
@@ -228,14 +203,6 @@ struct PhraseDetailView: View {
         // 同じ音源を再生中なら、そちらの表示にも即座に反映する
         if player.currentTrackID == track.id {
             player.setLearned(value, group: group)
-        }
-    }
-
-    private func setFavorite(_ group: Int, _ value: Bool) {
-        if value { favorites.insert(group) } else { favorites.remove(group) }
-        library.setFavorite(value, group: group, cueCount: cues.count, for: track.id)
-        if player.currentTrackID == track.id {
-            player.setFavorite(value, group: group)
         }
     }
 
@@ -275,7 +242,6 @@ struct PhraseDetailView: View {
 
     private var emptyIcon: String {
         switch filter {
-        case .favorite: return "star"
         case .learned: return "circle"
         default: return "checkmark.circle"
         }
@@ -283,7 +249,6 @@ struct PhraseDetailView: View {
 
     private var emptyMessage: String {
         switch filter {
-        case .favorite: return "お気に入りはまだありません。\n右端の星を押すと入ります。"
         case .learned: return "覚えた印を付けた項目はまだありません"
         default: return "すべて覚えた印が付いています"
         }

@@ -13,7 +13,6 @@ struct LibraryView: View {
     @State private var renameTarget: Track?
     @State private var renameText = ""
     @State private var clearLearnedTarget: Track?
-    @State private var clearFavoritesTarget: Track?
     @State private var errorMessage: String?
 
     var body: some View {
@@ -67,18 +66,6 @@ struct LibraryView: View {
         } message: {
             Text("この音源に付けた印がすべて消えます。元に戻せません。")
         }
-        .alert("お気に入りをすべて消しますか?", isPresented: showClearFavoritesBinding) {
-            Button("キャンセル", role: .cancel) { clearFavoritesTarget = nil }
-            Button("すべて消す", role: .destructive) {
-                if let target = clearFavoritesTarget {
-                    library.clearFavorites(for: target.id)
-                    if player.currentTrackID == target.id { player.applyFavorites([]) }
-                }
-                clearFavoritesTarget = nil
-            }
-        } message: {
-            Text("この音源のお気に入りがすべて消えます。元に戻せません。")
-        }
     }
 
     /// アラートは Optional の中身の有無で開閉するため、閉じられたら値も捨てる。
@@ -90,9 +77,6 @@ struct LibraryView: View {
     }
     private var showClearLearnedBinding: Binding<Bool> {
         Binding(get: { clearLearnedTarget != nil }, set: { if !$0 { clearLearnedTarget = nil } })
-    }
-    private var showClearFavoritesBinding: Binding<Bool> {
-        Binding(get: { clearFavoritesTarget != nil }, set: { if !$0 { clearFavoritesTarget = nil } })
     }
 
     // MARK: - 一覧
@@ -165,12 +149,6 @@ struct LibraryView: View {
             Label("覚えた印をすべて消す", systemImage: "arrow.counterclockwise")
         }
         .disabled(track.learnedGroups.isEmpty)
-        Button(role: .destructive) {
-            clearFavoritesTarget = track
-        } label: {
-            Label("お気に入りをすべて消す", systemImage: "star.slash")
-        }
-        .disabled(track.favoriteGroups.isEmpty)
         Button(role: .destructive) {
             library.remove(track)
         } label: {

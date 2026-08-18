@@ -115,34 +115,6 @@ final class LibraryStore: ObservableObject {
         return track.learnedGroups
     }
 
-    // MARK: - お気に入り
-
-    func setFavorite(_ favorite: Bool, group: Int, cueCount: Int, for trackID: UUID) {
-        guard let index = tracks.firstIndex(where: { $0.id == trackID }) else { return }
-        if tracks[index].favoriteCueCount != cueCount {
-            tracks[index].favoriteGroups = []
-            tracks[index].favoriteCueCount = cueCount
-        }
-        if favorite {
-            tracks[index].favoriteGroups.insert(group)
-        } else {
-            tracks[index].favoriteGroups.remove(group)
-        }
-        save()
-    }
-
-    func clearFavorites(for trackID: UUID) {
-        guard let index = tracks.firstIndex(where: { $0.id == trackID }) else { return }
-        tracks[index].favoriteGroups = []
-        save()
-    }
-
-    func favoriteGroups(for trackID: UUID, cueCount: Int) -> Set<Int> {
-        guard let track = tracks.first(where: { $0.id == trackID }),
-              track.favoriteCueCount == cueCount else { return [] }
-        return track.favoriteGroups
-    }
-
     func updatePosition(_ position: Double, for trackID: UUID) {
         guard let index = tracks.firstIndex(where: { $0.id == trackID }) else { return }
         // 1 秒未満の差では書き込まない(再生中に毎秒保存すると無駄が大きい)

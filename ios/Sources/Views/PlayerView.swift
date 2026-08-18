@@ -40,7 +40,7 @@ struct PlayerView: View {
         VStack(spacing: 0) {
             Group {
                 if isLive {
-                    TranscriptView(onToggleLearned: setLearned, onToggleFavorite: setFavorite)
+                    TranscriptView(onToggleLearned: setLearned)
                 } else {
                     previewList
                 }
@@ -203,10 +203,7 @@ struct PlayerView: View {
                     .font(.caption.monospacedDigit())
                     .foregroundStyle(.secondary)
                 Spacer()
-                HStack(spacing: 8) {
-                    repeatTrackButton
-                    favoriteRepeatButton
-                }
+                repeatTrackButton
                 Spacer()
                 Text(TimeFormatter.string(from: player.effectiveDuration))
                     .accessibilityIdentifier("duration")
@@ -236,34 +233,6 @@ struct PlayerView: View {
         .accessibilityLabel(on ? "繰り返しを止める" : "最後まで行ったら先頭から繰り返す")
     }
 
-    /// お気に入りだけを続けて流す切り替え。入れている間は目盛りも
-    /// お気に入りの合計に変わるので、残りがひと目で分かる。
-    private var favoriteRepeatButton: some View {
-        let count = player.favoriteGroups.count
-        let on = player.repeatFavorites
-        return Button {
-            // 位置を先頭のお気に入りへ寄せるだけで、再生は始めない。
-            // 押した拍子に鳴り出すと、印を確かめたいだけのときに邪魔になる。
-            player.repeatFavorites.toggle()
-        } label: {
-            // 印そのものと同じ黄色の星だけを出す。個数は一覧の見出しで分かる。
-            Image(systemName: "star.fill")
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(on ? Color.black.opacity(0.7) : Color.secondary)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 5)
-                .background(
-                    Capsule().fill(on ? Color.yellow : Color.secondary.opacity(0.15))
-                )
-        }
-        .buttonStyle(.plain)
-        // 入っている間は押せるままにする。星を全部外した後に切り替えだけ
-        // 残ると、押せないボタンが点いたままになってしまう。
-        .disabled(count == 0 && !on)
-        .opacity(count == 0 && !on ? 0.4 : 1)
-        .accessibilityIdentifier("repeatFavorites")
-        .accessibilityLabel(on ? "お気に入りの繰り返しを止める" : "お気に入りだけを繰り返す")
-    }
 
     // MARK: - 再生コントロール
 
@@ -386,10 +355,6 @@ struct PlayerView: View {
         library.setLearned(learned, group: group, cueCount: player.cues.count, for: track.id)
     }
 
-    private func setFavorite(_ group: Int, _ favorite: Bool) {
-        player.setFavorite(favorite, group: group)
-        library.setFavorite(favorite, group: group, cueCount: player.cues.count, for: track.id)
-    }
 
     private func loadIfNeeded() {
         guard !isLive else { return }
@@ -421,7 +386,6 @@ struct PlayerView: View {
             startAt: current.lastPosition
         )
         player.applyLearned(library.learnedGroups(for: current.id, cueCount: player.cues.count))
-        player.applyFavorites(library.favoriteGroups(for: current.id, cueCount: player.cues.count))
         player.speed = settings.defaultSpeed
     }
 
