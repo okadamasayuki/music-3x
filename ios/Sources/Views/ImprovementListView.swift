@@ -227,10 +227,10 @@ struct ImprovementListView: View {
 
     private var connectionLabel: String {
         switch reachable {
-        // 使い方の説明はもう添えない。毎日目にする場所なので短いほどいい。
-        case true: return "Mac 接続済み"
-        case false: return "Mac が見つかりません"
-        default: return "Mac を探しています…"
+        // 相手が Mac なのは言わずもがな。毎日目にする場所なので短いほどいい。
+        case true: return "接続済み"
+        case false: return "未接続"
+        default: return "確認中…"
         }
     }
 
