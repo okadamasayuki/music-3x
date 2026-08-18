@@ -101,34 +101,35 @@ struct ImprovementListView: View {
 
     private var inputSection: some View {
         Section {
-            if dictation.isRecording {
-                // 聞き取り中は流れが見えることが何より大事。TextField は文が
-                // 増えても勝手に最後まで送られず、長い口述では今どこまで
-                // 拾えているのか分からなくなる。聞き取り中だけ読み専用の
-                // 眺めに切り替え、常にいちばん新しい行を見せておく。
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        Text(draft.isEmpty ? "聞き取った文がここに出ます" : draft)
-                            .foregroundStyle(draft.isEmpty ? Color.secondary : Color.primary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.vertical, 2)
-                            .id("dictationTail")
+            // 入力欄はひとつだけ置き、聞き取り中はその上へ読み専用の眺めを
+            // 重ねる。欄の背丈は常に下の TextField が決めるので、録音へ
+            // 切り替えた瞬間に欄の大きさは 1pt も変わらない。文が伸びた
+            // ときの育ち方も、手で打っているときとまったく同じになる。
+            TextField("思いついた改善を書き留める", text: $draft, axis: .vertical)
+                .lineLimit(3...8)
+                .disabled(dictation.isRecording)
+                .opacity(dictation.isRecording ? 0 : 1)
+                .accessibilityIdentifier("improvementDraft")
+                .overlay {
+                    if dictation.isRecording {
+                        // 聞き取り中は流れが見えることが何より大事。TextField は
+                        // 文が増えても勝手に最後まで送られないので、常に最新の
+                        // 行が見える眺めをかぶせる。
+                        ScrollViewReader { proxy in
+                            ScrollView(showsIndicators: false) {
+                                Text(draft.isEmpty ? "聞き取った文がここに出ます" : draft)
+                                    .foregroundStyle(draft.isEmpty ? Color.secondary : Color.primary)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .id("dictationTail")
+                            }
+                            .onChange(of: draft) { _ in
+                                proxy.scrollTo("dictationTail", anchor: .bottom)
+                            }
+                            .onAppear { proxy.scrollTo("dictationTail", anchor: .bottom) }
+                        }
+                        .accessibilityIdentifier("dictationLive")
                     }
-                    // ふだんの入力欄(3 行ほど)と同じ背丈に合わせる。
-                    // 録音に切り替わった途端に欄がぐっと伸びるのは落ち着かない
-                    // という求め。最新の行へ送り続けるので、この高さで足りる。
-                    .frame(height: 72)
-                    .onChange(of: draft) { _ in
-                        proxy.scrollTo("dictationTail", anchor: .bottom)
-                    }
-                    .onAppear { proxy.scrollTo("dictationTail", anchor: .bottom) }
                 }
-                .accessibilityIdentifier("dictationLive")
-            } else {
-                TextField("思いついた改善を書き留める", text: $draft, axis: .vertical)
-                    .lineLimit(3...8)
-                    .accessibilityIdentifier("improvementDraft")
-            }
 
             // 場所さえ分かれば説明の文字は要らないので、マイクの絵だけの
             // 小さなボタンにする。「追加」より控えめな大きさに留める。
