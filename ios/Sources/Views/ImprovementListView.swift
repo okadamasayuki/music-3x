@@ -105,7 +105,9 @@ struct ImprovementListView: View {
             // 重ねる。欄の背丈は常に下の TextField が決めるので、録音へ
             // 切り替えた瞬間に欄の大きさは 1pt も変わらない。文が伸びた
             // ときの育ち方も、手で打っているときとまったく同じになる。
-            TextField("思いついた改善を書き留める", text: $draft, axis: .vertical)
+            // 空欄への誘い文句は置かない。毎日使う本人には言わずもがなで、
+            // 目に入るたびに読まされるだけだという求めによる。
+            TextField("", text: $draft, axis: .vertical)
                 .lineLimit(3...8)
                 .disabled(dictation.isRecording)
                 .opacity(dictation.isRecording ? 0 : 1)
@@ -117,8 +119,7 @@ struct ImprovementListView: View {
                         // 行が見える眺めをかぶせる。
                         ScrollViewReader { proxy in
                             ScrollView(showsIndicators: false) {
-                                Text(draft.isEmpty ? "聞き取った文がここに出ます" : draft)
-                                    .foregroundStyle(draft.isEmpty ? Color.secondary : Color.primary)
+                                Text(draft)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .id("dictationTail")
                             }
