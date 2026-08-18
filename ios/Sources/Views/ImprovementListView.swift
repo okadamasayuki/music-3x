@@ -101,9 +101,31 @@ struct ImprovementListView: View {
 
     private var inputSection: some View {
         Section {
-            TextField("思いついた改善を書き留める", text: $draft, axis: .vertical)
-                .lineLimit(3...8)
-                .accessibilityIdentifier("improvementDraft")
+            if dictation.isRecording {
+                // 聞き取り中は流れが見えることが何より大事。TextField は文が
+                // 増えても勝手に最後まで送られず、長い口述では今どこまで
+                // 拾えているのか分からなくなる。聞き取り中だけ読み専用の
+                // 眺めに切り替え、常にいちばん新しい行を見せておく。
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        Text(draft.isEmpty ? "聞き取った文がここに出ます" : draft)
+                            .foregroundStyle(draft.isEmpty ? Color.secondary : Color.primary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.vertical, 2)
+                            .id("dictationTail")
+                    }
+                    .frame(height: 160)
+                    .onChange(of: draft) { _ in
+                        proxy.scrollTo("dictationTail", anchor: .bottom)
+                    }
+                    .onAppear { proxy.scrollTo("dictationTail", anchor: .bottom) }
+                }
+                .accessibilityIdentifier("dictationLive")
+            } else {
+                TextField("思いついた改善を書き留める", text: $draft, axis: .vertical)
+                    .lineLimit(3...8)
+                    .accessibilityIdentifier("improvementDraft")
+            }
 
             // 場所さえ分かれば説明の文字は要らないので、マイクの絵だけの
             // 小さなボタンにする。「追加」より控えめな大きさに留める。
@@ -128,11 +150,10 @@ struct ImprovementListView: View {
                     .accessibilityIdentifier("addImprovement")
             }
 
-            // 別のアプリへ移っても続くことは見た目から伝わらないので、言葉で添える
-            if dictation.isRecording {
-                Text(dictation.isSuspended
-                     ? "電話などでいったん途切れています。マイクが空きしだい続きを聞き取ります。"
-                     : "聞き取り中。ほかのアプリに移っても続きます。マイクをもう一度押すと完了です。")
+            // 聞き取り中の案内は出さない(赤いマイクで足りるという求め)。
+            // 途切れている間だけは、黙って待つと壊れて見えるので言葉で添える。
+            if dictation.isRecording, dictation.isSuspended {
+                Text("電話などでいったん途切れています。マイクが空きしだい続きを聞き取ります。")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -163,7 +184,7 @@ struct ImprovementListView: View {
                 .frame(width: 8, height: 8)
             Text(connectionLabel)
             Spacer()
-            Button("確かめ直す") { checkReachability() }
+            Button("再接続") { checkReachability() }
                 .font(.footnote)
         }
         .font(.footnote)
@@ -171,8 +192,9 @@ struct ImprovementListView: View {
 
     private var connectionLabel: String {
         switch reachable {
-        case true: return "Mac につながっています。左から右へスワイプで実装が始まります。"
-        case false: return "Mac が見つかりません。家の Wi-Fi で Mac が起きていれば届きます。"
+        // 使い方の説明はもう添えない。毎日目にする場所なので短いほどいい。
+        case true: return "Mac 接続済み"
+        case false: return "Mac が見つかりません"
         default: return "Mac を探しています…"
         }
     }
