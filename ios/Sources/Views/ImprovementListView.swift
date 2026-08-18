@@ -33,6 +33,17 @@ struct ImprovementListView: View {
     @State private var spinAngle = 0.0
 
     var body: some View {
+        // タイトルの帯と入力の枠の間を詰める。標準のままだと最初の節の
+        // 上に大きな空きが入る。新しい iOS には正式な口があるので使い、
+        // 古い iOS では同じ見た目になるぶんだけ上へ寄せる。
+        if #available(iOS 17.0, *) {
+            listContent.contentMargins(.top, 6, for: .scrollContent)
+        } else {
+            listContent.padding(.top, -16)
+        }
+    }
+
+    private var listContent: some View {
         List {
             inputSection
             if !store.items.isEmpty { pendingSection }
