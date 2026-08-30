@@ -1,3 +1,4 @@
+import PhotosUI
 import SwiftUI
 import UIKit
 
@@ -12,6 +13,8 @@ struct ImprovementListView: View {
     @EnvironmentObject private var player: PlayerEngine
     @EnvironmentObject private var voice: VoiceCommands
     @StateObject private var dictation = Dictation()
+    /// Claude Code からの対応結果。Mac 側がファイルを置き、ここで読む。
+    @StateObject private var resultStore = ImprovementResultStore()
 
     /// 入力欄の下書き。アプリが途中で落ちても書きかけが消えないよう、
     /// 端末に置いて、書くたび・聞き取るたびに保存する。
@@ -31,6 +34,16 @@ struct ImprovementListView: View {
     @State private var reachable: Bool?
     /// 再接続の矢印の回転角。押すたびに一回転させ、押せたことを見せる。
     @State private var spinAngle = 0.0
+    /// 下書きに付ける添付(保存済みのファイル名)。
+    @State private var draftAttachments: [String] = []
+    /// フォトピッカーの選択。取り込んだら空に戻す。
+    @State private var pickedItems: [PhotosPickerItem] = []
+    /// 全文表示する対応結果。
+    @State private var resultDetail: ImprovementResult?
+    /// 「対応済み」を全消去する前の確認。
+    @State private var showClearResultsConfirm = false
+    /// 書き取りのために再生を止めたか。終わったら黙って再開する。
+    @State private var pausedPlayerForDictation = false
 
     var body: some View {
         listContent.tightTop()
@@ -40,7 +53,10 @@ struct ImprovementListView: View {
         List {
             inputSection
             if !store.items.isEmpty { pendingSection }
+            if !resultStore.results.isEmpty { resultsSection }
         }
+        // 対応済みは Mac 側がファイルを置く形なので、引っ張れば読み直せる
+        .refreshable { resultStore.reload() }
         .listStyle(.insetGrouped)
         // 入力欄の外を触るかスクロールしたら、キーボードを下げて一覧を見せる
         .dismissKeyboardOnTap()
@@ -52,7 +68,10 @@ struct ImprovementListView: View {
                 connectionStatus
             }
         }
-        .onAppear { checkReachability() }
+        .onAppear {
+            checkReachability()
+            resultStore.reload()
+        }
         // 他のタブや画面を見に行っても書き取りは止めない。アプリの外へ
         // 出ても続けるのと同じ理由で、調べ物を挟む長い口述のため。
         // 止まるのは完了ボタンを押したときだけ。
@@ -71,10 +90,40 @@ struct ImprovementListView: View {
         } message: {
             Text(errorMessage ?? "")
         }
+        // 対応済みの全消去は確認してから。まとめて消える操作なので。
+        .alert("対応済みをすべて消しますか?", isPresented: $showClearResultsConfirm) {
+            Button("キャンセル", role: .cancel) {}
+            Button("すべて消す", role: .destructive) { resultStore.removeAll() }
+        } message: {
+            Text("対応済み \(resultStore.results.count) 件をまとめて消します。")
+        }
         // 声で入れたメモは数行になりがちで、アラートの1行欄では直しづらい。
         // 全体を見渡しながら書き直せる広い欄をシートで出す。
         .sheet(item: $editTarget) { _ in
             editSheet
+        }
+        // 対応結果の全文。3 行の抜粋では原因の説明まで読めない。
+        .sheet(item: $resultDetail) { result in
+            NavigationStack {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text(result.title)
+                            .font(.headline)
+                        Text(result.summary)
+                            .font(.body)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .padding()
+                }
+                .navigationTitle("対応内容")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("閉じる") { resultDetail = nil }
+                    }
+                }
+            }
+            .presentationDetents([.medium, .large])
         }
     }
 
@@ -158,6 +207,25 @@ struct ImprovementListView: View {
                 .accessibilityLabel(dictation.isRecording ? "聞き取り中。タップで完了" : "声で書き取る")
                 .accessibilityIdentifier("dictationToggle")
 
+                // 画面の様子を見せたいときのための、写真・動画の添付
+                PhotosPicker(selection: $pickedItems, maxSelectionCount: 3,
+                             matching: .any(of: [.images, .videos])) {
+                    Image(systemName: "photo.on.rectangle")
+                        .font(.footnote.weight(.semibold))
+                        .frame(minWidth: 30, minHeight: 20)
+                }
+                .buttonStyle(.bordered)
+                .onChange(of: pickedItems) { items in
+                    Task { await importPicked(items) }
+                }
+                .accessibilityIdentifier("attachPicker")
+
+                if !draftAttachments.isEmpty {
+                    Text("📎\(draftAttachments.count)")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                }
+
                 Spacer()
 
                 // 言い直したくなったときに、書きかけを一息で捨てる。
@@ -177,7 +245,8 @@ struct ImprovementListView: View {
                     .buttonStyle(.bordered)
                     .font(.subheadline.weight(.semibold))
                     .frame(minHeight: 28)
-                    .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                              && draftAttachments.isEmpty)
                     .accessibilityIdentifier("addImprovement")
             }
 
@@ -257,9 +326,14 @@ struct ImprovementListView: View {
         HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(item.text)
-                Text(item.createdAt, format: .dateTime.month().day().hour().minute())
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                HStack(spacing: 6) {
+                    Text(item.createdAt, format: .dateTime.month().day().hour().minute())
+                    if let count = item.attachments?.count, count > 0 {
+                        Text("📎\(count)")
+                    }
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             if sendingIDs.contains(item.id) {
@@ -290,6 +364,46 @@ struct ImprovementListView: View {
         .accessibilityIdentifier("pendingImprovement")
     }
 
+    // MARK: - 対応済み(Claude Code からの結果報告)
+
+    private var resultsSection: some View {
+        Section {
+            ForEach(resultStore.results) { result in
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(result.title)
+                        .font(.subheadline.weight(.semibold))
+                    Text(result.summary)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(3)
+                    Text(result.completedAt, format: .dateTime.month().day().hour().minute())
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+                .onTapGesture { resultDetail = result }
+                .swipeActions(edge: .trailing) {
+                    Button(role: .destructive) {
+                        resultStore.remove(result.id)
+                    } label: {
+                        Image(systemName: "trash")
+                    }
+                }
+            }
+        } header: {
+            // 見出しの右端に全消去。まとめて消える操作なので、押したら確認を挟む
+            HStack {
+                Text("対応済み")
+                Spacer()
+                Button("全消去") { showClearResultsConfirm = true }
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.red)
+                    .textCase(nil)
+            }
+        }
+    }
+
     // MARK: - 操作
 
     private func toggleDictation() {
@@ -301,6 +415,12 @@ struct ImprovementListView: View {
         } else {
             // マイクは一つ。覚えた印の聞き役が動いていたら、書き取りの間だけ譲ってもらう
             voice.stop()
+            // 教材が鳴っていたら黙らせておく。エコー消去はあるが、倍速の English を
+            // 浴びせながらの日本語の書き取りは聞き違いが増える。終わったら再開する。
+            if player.isPlaying {
+                player.pause()
+                pausedPlayerForDictation = true
+            }
             dictationBase = draft.trimmingCharacters(in: .whitespacesAndNewlines)
             dictation.start()
         }
@@ -310,13 +430,17 @@ struct ImprovementListView: View {
         if dictation.isRecording { dictation.stop() }
     }
 
-    /// 書き取りが終わったら、マイクを元の役目へ返す。
+    /// 書き取りが終わったら、マイクを元の役目へ返し、止めていた再生を戻す。
     private func restoreAudio() {
         if settings.voiceControl {
             voice.start()
         } else {
             // 録音のために変えた音の設定を、再生だけの形へ戻す
             player.configureAudioSession()
+        }
+        if pausedPlayerForDictation {
+            pausedPlayerForDictation = false
+            player.play()
         }
     }
 
@@ -325,6 +449,11 @@ struct ImprovementListView: View {
     private func clearDraft() {
         draft = ""
         dictationBase = ""
+        for name in draftAttachments {
+            try? FileManager.default.removeItem(
+                at: ImprovementStore.mediaDir.appendingPathComponent(name))
+        }
+        draftAttachments = []
         dictation.clearText()
         UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
     }
@@ -339,10 +468,29 @@ struct ImprovementListView: View {
     private func addDraft() {
         stopDictationIfNeeded()
         syncDraftFromDictation()
-        store.add(draft)
+        store.add(draft, attachments: draftAttachments.isEmpty ? nil : draftAttachments)
         draft = ""
         dictationBase = ""
+        draftAttachments = []
+        pickedItems = []
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+    }
+
+    /// フォトピッカーの選択を添付の置き場へ取り込む。
+    private func importPicked(_ items: [PhotosPickerItem]) async {
+        for item in items {
+            guard let data = try? await item.loadTransferable(type: Data.self) else { continue }
+            // 極端に大きい動画は、送るときに待ちきれないので断る
+            guard data.count < 120_000_000 else { continue }
+            let ext = item.supportedContentTypes.first?.preferredFilenameExtension ?? "bin"
+            let name = "\(UUID().uuidString).\(ext)"
+            try? data.write(to: ImprovementStore.mediaDir.appendingPathComponent(name))
+            draftAttachments.append(name)
+        }
+        pickedItems = []
+        if !draftAttachments.isEmpty {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        }
     }
 
     private func send(_ item: Improvement) {

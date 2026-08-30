@@ -38,17 +38,30 @@ enum MacLink {
         }
     }
 
-    /// 改善要望を Mac へ送る。届くと Mac 側で Claude Code が立ち上がり、実装が始まる。
+    /// 改善要望を Mac へ送る。届くと受信箱に入り、常駐セッションが実装を始める。
+    /// 添付(写真・動画)があれば base64 で一緒に送る。同じ Wi-Fi の中だけ
+    /// なので、多少かさばっても許す。そのぶん待ち時間は長めに取る。
     static func send(_ improvement: Improvement, host: String) async throws {
         guard let url = url(host: host, path: "/implement") else { throw SendError.badHost }
-        var request = URLRequest(url: url, timeoutInterval: 8)
+        let hasMedia = !(improvement.attachments ?? []).isEmpty
+        var request = URLRequest(url: url, timeoutInterval: hasMedia ? 120 : 8)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        let body: [String: String] = [
+        var body: [String: Any] = [
             "id": improvement.id.uuidString,
             "text": improvement.text,
             "createdAt": ISO8601DateFormatter().string(from: improvement.createdAt),
         ]
+        if hasMedia {
+            var files: [[String: String]] = []
+            for name in improvement.attachments ?? [] {
+                let fileURL = ImprovementStore.mediaDir.appendingPathComponent(name)
+                if let data = try? Data(contentsOf: fileURL) {
+                    files.append(["name": name, "data": data.base64EncodedString()])
+                }
+            }
+            body["attachments"] = files
+        }
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
         let code: Int

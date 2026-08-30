@@ -8,6 +8,8 @@ struct Improvement: Identifiable, Codable, Equatable {
     /// 昔の保存にだけ残っている「送った日時」。いまは送れた項目を
     /// その場で消すので、新しく付くことはない。読み込みのために残す。
     var sentAt: Date?
+    /// 添付(写真・動画)のファイル名。実体は Documents/improve_media/ に置く。
+    var attachments: [String]? = nil
 }
 
 /// 改善要望を端末に保管する。
@@ -29,10 +31,21 @@ final class ImprovementStore: ObservableObject {
         load()
     }
 
-    func add(_ text: String) {
+    /// 添付ファイル(写真・動画)の置き場。
+    static var mediaDir: URL {
+        let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("improve_media", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+
+    func add(_ text: String, attachments: [String]? = nil) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        items.insert(Improvement(text: trimmed), at: 0)
+        let files = attachments ?? []
+        guard !trimmed.isEmpty || !files.isEmpty else { return }
+        // 画面の見せたい場所だけ撮って送る、という使い方があるので文は無くてもよい
+        items.insert(Improvement(text: trimmed.isEmpty ? "(添付のみ)" : trimmed,
+                                 attachments: files.isEmpty ? nil : files), at: 0)
         save()
     }
 
@@ -44,6 +57,13 @@ final class ImprovementStore: ObservableObject {
     }
 
     func remove(_ id: UUID) {
+        // 添付の実体も一緒に片付ける。項目を消したのに写真だけ残ると
+        // 端末の容量を黙って食い続ける。
+        if let item = items.first(where: { $0.id == id }) {
+            for name in item.attachments ?? [] {
+                try? FileManager.default.removeItem(at: Self.mediaDir.appendingPathComponent(name))
+            }
+        }
         items.removeAll { $0.id == id }
         save()
     }

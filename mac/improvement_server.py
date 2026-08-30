@@ -102,6 +102,27 @@ class Handler(BaseHTTPRequestHandler):
             return
         created_at = str(body.get("createdAt", ""))
 
+        # 添付(写真・動画)は base64 で届く。実体を置き場へ移し、受信箱には
+        # 置き場の道筋だけを残す。中身ごと記録すると受信箱が読めなくなる。
+        saved_paths = []
+        attachments = body.pop("attachments", None)
+        if isinstance(attachments, list):
+            import base64
+            media_dir = WORK_DIR / "media"
+            media_dir.mkdir(exist_ok=True)
+            stamp = time.strftime("%Y%m%d-%H%M%S")
+            for i, att in enumerate(attachments):
+                try:
+                    name = str(att.get("name", f"file{i}"))
+                    ext = name.rsplit(".", 1)[-1] if "." in name else "bin"
+                    path = media_dir / f"{stamp}_{i}.{ext}"
+                    path.write_bytes(base64.b64decode(att["data"]))
+                    saved_paths.append(str(path))
+                except Exception:  # noqa: BLE001 — 壊れた添付は飛ばして本文は届ける
+                    continue
+        if saved_paths:
+            body["attachments"] = saved_paths
+
         # 何が届いたかの控え。実装がうまくいかなかったときに見返す。
         with (WORK_DIR / "inbox.jsonl").open("a", encoding="utf-8") as f:
             f.write(json.dumps(
