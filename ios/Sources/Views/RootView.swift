@@ -95,6 +95,8 @@ struct RootView: View {
                 library?.updatePosition(position, for: trackID)
             }
             applySettings()
+            // 無音検証。ふだんの起動では何もしない(SkipAudit 参照)
+            SkipAudit.startIfRequested(player: player, library: library)
             voice.onMatch = { group in toggleLearned(group) }
             voice.onUndo = { undoLastToggle() }
             voice.focusGroup = { player.activeGroupIndex ?? player.highlightedGroupIndex }

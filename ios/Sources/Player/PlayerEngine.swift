@@ -85,6 +85,7 @@ final class PlayerEngine: ObservableObject {
 
     deinit {
         if let timeObserver { player.removeTimeObserver(timeObserver) }
+        if let skipBoundaryObserver { player.removeTimeObserver(skipBoundaryObserver) }
         notificationTokens.forEach(NotificationCenter.default.removeObserver)
     }
 
@@ -181,6 +182,10 @@ final class PlayerEngine: ObservableObject {
 
     func play() {
         guard isReady || player.currentItem != nil else { return }
+        // 覚えた項目の中(や項目間の入り口)からは鳴らさない。まず消音の
+        // まま次の未習項目へ移してから鳴らす。止めた場所が飛ばす区間の中の
+        // まま鳴らすと、次の確認までの間だけ頭が漏れて聞こえるため。
+        skipLearnedIfNeeded(at: currentTime)
         // rate 指定で再生を始めることで「1x で鳴ってから倍速に切り替わる」段差をなくす
         player.playImmediately(atRate: Float(speed))
         updateNowPlayingInfo()
@@ -221,6 +226,12 @@ final class PlayerEngine: ObservableObject {
         if silently {
             player.volume = 0
             isMutedForSeek = true
+        } else if skipLearned, skippedRanges.contains(where: { target >= $0.start - 0.05 && target < $0.end }) {
+            // 着地点が飛ばす区間の中なら、行きの時点から消音しておく。
+            // 完了してから消すのでは、完了の知らせが主スレッドへ渡るわずかな
+            // 間に区間の頭が鳴る。着地後は完了側がそのまま先へ飛ばし直す。
+            player.volume = 0
+            isMutedForSeek = true
         } else if isMutedForSeek {
             // 消音中に普通のシークが割り込んだら、その場で戻す。
             // 追い越された側の完了は音量を触らないので、ここで戻さないと消えたままになる。
@@ -241,6 +252,12 @@ final class PlayerEngine: ObservableObject {
                 // 追い越された古いシークの完了では音量を触らない。後続のシークが
                 // 消音した直後に、古い完了が音量を戻して漏れてしまうため。
                 guard generation == self.seekGeneration else { return }
+                // 着地点が飛ばす区間の中や入り口なら、音量を戻す前にそのまま
+                // 続きへ飛ぶ。戻してから次の定期確認に任せると、確認までの
+                // 間だけ区間の頭が鳴ってしまう。鳴っていないときは何もしない。
+                // 止まったまま眺めたい場所まで飛ばされると困る。
+                if self.player.timeControlStatus != .paused,
+                   self.skipLearnedIfNeeded(at: target) { return }
                 if self.isMutedForSeek {
                     self.player.volume = 1
                     self.isMutedForSeek = false
@@ -310,6 +327,21 @@ final class PlayerEngine: ObservableObject {
             guard let self, shouldResume else { return }
             self.player.playImmediately(atRate: Float(self.speed))
         }
+    }
+
+    // MARK: - 検証用の覗き窓
+
+    /// 無音検証(SkipAudit)のための覗き窓。ふだんの動作では使わない。
+    /// 定期監視の currentTime は 0.25 秒刻みでしか進まないため、
+    /// 検証ではここから細かい間隔で実際の再生位置を読む。
+    var auditPreciseTime: Double { player.currentTime().seconds }
+    var auditVolume: Float { player.volume }
+    /// 検証中に端末やシミュレータから音を出さないための元栓。
+    /// 飛ばしの消音は volume で行っているので、isMuted 側を閉めれば
+    /// 判定を邪魔せずに黙らせられる。
+    var auditHardMuted: Bool {
+        get { player.isMuted }
+        set { player.isMuted = newValue }
     }
 
     // MARK: - 監視
@@ -486,6 +518,50 @@ final class PlayerEngine: ObservableObject {
     private func rebuildSkippedRanges() {
         skippedRanges = skipLearned ? merged(of: learnedGroups) : []
         skippedDuration = skippedRanges.reduce(0) { $0 + ($1.end - $1.start) }
+        rebuildSkipBoundaries()
+    }
+
+    /// 飛ばす区間の入り口に置く見張り。
+    ///
+    /// 定期確認(0.25 秒刻み)だけに任せると、項目が隙間なく並ぶ教材では
+    /// 区間に入ってから気づくことになり、確認の間隔ぶんだけ頭が鳴ってしまう。
+    /// 入り口ちょうどで発火する見張りを置き、まず消音してから飛ばす。
+    private var skipBoundaryObserver: Any?
+
+    private func rebuildSkipBoundaries() {
+        if let observer = skipBoundaryObserver {
+            player.removeTimeObserver(observer)
+            skipBoundaryObserver = nil
+        }
+        guard !skippedRanges.isEmpty else { return }
+        // わずかに手前で構える。ちょうどに構えると、主スレッドへ渡る間にも
+        // 再生が進み、消音が頭に間に合わないことがある。手前の項目の尻が
+        // その分だけ欠けるが、飛ばすはずの頭が鳴るよりよい。
+        let times = skippedRanges.map {
+            NSValue(time: CMTime(seconds: max(0, $0.start - 0.05), preferredTimescale: 600))
+        }
+        skipBoundaryObserver = player.addBoundaryTimeObserver(forTimes: times, queue: .main) { [weak self] in
+            self?.muteAndSkipAtBoundary()
+        }
+    }
+
+    /// 飛ばす区間の入り口に着いた。何より先に音を落とし、それから飛ばす。
+    private func muteAndSkipAtBoundary() {
+        guard skipLearned, !skippedRanges.isEmpty else { return }
+        // 飛行中のシークがあれば、その完了側が着地点を確かめて面倒を見る
+        guard pendingSeeks == 0 else { return }
+        guard player.timeControlStatus != .paused else { return }
+        let now = player.currentTime().seconds
+        guard now.isFinite,
+              let range = skippedRanges.first(where: { now >= $0.start - 0.2 && now < $0.end })
+        else { return }
+        player.volume = 0
+        isMutedForSeek = true
+        // 見張りは入り口の少し手前で鳴るので、確実に区間の中の時刻で判定させる
+        if !skipLearnedIfNeeded(at: max(now, range.start + 0.001)) {
+            player.volume = 1
+            isMutedForSeek = false
+        }
     }
 
     /// 項目番号の集まりを、重なりのない時間の区間に直す。
