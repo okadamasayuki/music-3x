@@ -208,7 +208,7 @@ struct ImprovementListView: View {
                 .accessibilityIdentifier("dictationToggle")
 
                 // 画面の様子を見せたいときのための、写真・動画の添付
-                PhotosPicker(selection: $pickedItems, maxSelectionCount: 3,
+                PhotosPicker(selection: $pickedItems, maxSelectionCount: 15,
                              matching: .any(of: [.images, .videos])) {
                     Image(systemName: "photo.on.rectangle")
                         .font(.footnote.weight(.semibold))
