@@ -15,7 +15,12 @@ import sys
 import time
 import uuid
 
-DEVICE = "0FBCC7AE-2007-5EA8-9EDF-869A24A76401"
+# アプリの入っている端末すべてへ届ける。つながっていない端末は黙って諦める。
+# 知らせは一日で腐るので、その場で届く端末にだけ出せば足りる。
+DEVICES = {
+    "iPhone": "0FBCC7AE-2007-5EA8-9EDF-869A24A76401",
+    "iPad": "827AFE1B-A54A-5F66-A2AC-A896DF8E97BE",
+}
 APPID = "com.okadamasayuki.music3x"
 ENV = dict(os.environ, DEVELOPER_DIR="/Applications/Xcode.app/Contents/Developer")
 TMP = "/tmp/music3x_improve_results.json"
@@ -26,25 +31,30 @@ def dctl(*args):
 
 
 title, summary = sys.argv[1], sys.argv[2]
-dctl("device", "copy", "from", "--device", DEVICE,
-     "--source", "Documents/improve_results.json", "--destination", TMP,
-     "--domain-type", "appDataContainer", "--domain-identifier", APPID)
-try:
-    results = json.load(open(TMP))
-except Exception:  # noqa: BLE001 — 端末にまだ無ければ空から始める
-    results = []
-
-# 端末(Swift)の JSONDecoder が読める形式にする:
-# id は UUID の大文字表記、日付は 2001 年からの参照秒。
-swift_epoch = time.time() - 978307200.0
-results.append({
-    "id": str(uuid.uuid4()).upper(),
-    "title": title,
-    "summary": summary,
-    "completedAt": swift_epoch,
-})
-json.dump(results, open(TMP, "w"), ensure_ascii=False)
-r = dctl("device", "copy", "to", "--device", DEVICE,
-         "--source", TMP, "--destination", "Documents/improve_results.json",
+for name, device in DEVICES.items():
+    try:
+        os.remove(TMP)
+    except FileNotFoundError:
+        pass
+    dctl("device", "copy", "from", "--device", device,
+         "--source", "Documents/improve_results.json", "--destination", TMP,
          "--domain-type", "appDataContainer", "--domain-identifier", APPID)
-print("pushed" if r.returncode == 0 else f"FAILED: {r.stderr.decode()[:200]}")
+    try:
+        results = json.load(open(TMP))
+    except Exception:  # noqa: BLE001 — 端末にまだ無ければ空から始める
+        results = []
+
+    # 端末(Swift)の JSONDecoder が読める形式にする:
+    # id は UUID の大文字表記、日付は 2001 年からの参照秒。
+    swift_epoch = time.time() - 978307200.0
+    results.append({
+        "id": str(uuid.uuid4()).upper(),
+        "title": title,
+        "summary": summary,
+        "completedAt": swift_epoch,
+    })
+    json.dump(results, open(TMP, "w"), ensure_ascii=False)
+    r = dctl("device", "copy", "to", "--device", device,
+             "--source", TMP, "--destination", "Documents/improve_results.json",
+             "--domain-type", "appDataContainer", "--domain-identifier", APPID)
+    print(f"{name}: " + ("pushed" if r.returncode == 0 else f"FAILED: {r.stderr.decode()[:120]}"))
