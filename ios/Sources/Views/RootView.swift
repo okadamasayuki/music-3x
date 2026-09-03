@@ -7,22 +7,11 @@ struct RootView: View {
     @EnvironmentObject private var settings: AppSettings
     @EnvironmentObject private var voice: VoiceCommands
 
-    private enum Tab: Hashable { case library, phrases, improve, settings }
-
-    /// 帯より手前に重ねる画面。どちらもタブの帯まで覆う。
-    private enum Opened: Equatable {
-        case player(UUID)
-        case phrases(UUID)
-
-        var trackID: UUID {
-            switch self {
-            case .player(let id), .phrases(let id): return id
-            }
-        }
-    }
+    private enum Tab: Hashable { case library, improve, settings }
 
     @State private var selectedTab: Tab = .library
-    @State private var opened: Opened?
+    /// 帯より手前に重ねて開いているプレイヤーの音源。タブの帯まで覆う。
+    @State private var openedTrackID: UUID?
     /// 手前の画面を右へずらしている量。0 なら開いた状態。
     @State private var dragX: CGFloat = 0
     /// 画面の横幅。開くときの初期位置(画面の外)を決めるために覚えておく。
@@ -31,7 +20,7 @@ struct RootView: View {
     @State private var lastVoiceToggle: (group: Int, becameLearned: Bool)?
 
     private var openedTrack: Track? {
-        opened.flatMap { o in library.tracks.first(where: { $0.id == o.trackID }) }
+        openedTrackID.flatMap { id in library.tracks.first(where: { $0.id == id }) }
     }
 
     var body: some View {
@@ -52,31 +41,18 @@ struct RootView: View {
                     )
 
                 // タブより手前に重ねる。帯まで覆うことで、字幕に使える範囲が広がる。
-                if let opened, let track = openedTrack {
-                    Group {
-                        switch opened {
-                        case .player:
-                            PlayerView(
-                                track: track,
-                                nowPlayingLines: currentLines,
-                                onOpenNowPlaying: {
-                                    if let id = player.currentTrackID { open(.player(id)) }
-                                },
-                                onBackDragChanged: { dragX = max(0, $0) },
-                                onBackDragEnded: { translation, predicted in
-                                    finish(translation: translation, predicted: predicted, width: width)
-                                }
-                            )
-                        case .phrases:
-                            PhraseDetailView(
-                                track: track,
-                                onBackDragChanged: { dragX = max(0, $0) },
-                                onBackDragEnded: { translation, predicted in
-                                    finish(translation: translation, predicted: predicted, width: width)
-                                }
-                            )
+                if let track = openedTrack {
+                    PlayerView(
+                        track: track,
+                        nowPlayingLines: currentLines,
+                        onOpenNowPlaying: {
+                            if let id = player.currentTrackID { open(id) }
+                        },
+                        onBackDragChanged: { dragX = max(0, $0) },
+                        onBackDragEnded: { translation, predicted in
+                            finish(translation: translation, predicted: predicted, width: width)
                         }
-                    }
+                    )
                     .background(Color(.systemBackground).ignoresSafeArea())
                     .offset(x: dragX)
                     .shadow(color: .black.opacity(0.3), radius: 12, x: -6)
@@ -113,18 +89,11 @@ struct RootView: View {
     private var tabs: some View {
         TabView(selection: $selectedTab) {
             NavigationStack {
-                LibraryView(onOpen: { open(.player($0)) })
+                LibraryView(onOpen: { open($0) })
                     .safeAreaInset(edge: .bottom) { miniPlayer }
             }
             .tabItem { Label("ライブラリ", systemImage: "music.note.list") }
             .tag(Tab.library)
-
-            NavigationStack {
-                PhraseListView(onOpen: { open(.phrases($0)) })
-                    .safeAreaInset(edge: .bottom) { miniPlayer }
-            }
-            .tabItem { Label("フレーズ", systemImage: "checklist") }
-            .tag(Tab.phrases)
 
             NavigationStack {
                 ImprovementListView()
@@ -162,7 +131,7 @@ struct RootView: View {
     /// 画面を離れても鳴り続けるので、止める・戻るための手がかりを残しておく。
     @ViewBuilder
     private var miniPlayer: some View {
-        if opened == nil, let track = playingTrack {
+        if openedTrackID == nil, let track = playingTrack {
             MiniPlayerBar(
                 title: track.displayName,
                 lines: currentLines,
@@ -170,16 +139,16 @@ struct RootView: View {
                 progress: player.effectiveDuration > 0
                     ? player.effectiveTime(for: player.currentTime) / player.effectiveDuration
                     : 0,
-                onOpen: { open(.player(track.id)) },
+                onOpen: { open(track.id) },
                 onToggle: { player.togglePlayPause() }
             )
         }
     }
 
     /// 画面の外(右)へ置いてから、その場へ滑らせる。
-    private func open(_ target: Opened) {
+    private func open(_ trackID: UUID) {
         let width = max(screenWidth, 1)
-        opened = target
+        openedTrackID = trackID
         dragX = width
         // 置いた直後に動かす。同じ描画のうちに動かすと、初期位置が無視される。
         DispatchQueue.main.async {
@@ -194,7 +163,7 @@ struct RootView: View {
             withAnimation(.easeOut(duration: 0.22)) { dragX = width }
             // ずれきってから実体を外す。先に外すと画面が一瞬飛んで見える。
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                opened = nil
+                openedTrackID = nil
                 dragX = 0
             }
         } else {
