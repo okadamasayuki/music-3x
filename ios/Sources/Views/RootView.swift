@@ -10,8 +10,11 @@ struct RootView: View {
     private enum Tab: Hashable { case library, recall, improve, settings }
 
     /// 帯より手前に重ねる画面。どちらもタブの帯まで覆う。
-    /// 英作の練習を画面遷移で出すと、戻るときにタブの帯の再表示が
-    /// 一拍遅れる。プレイヤーと同じ重ね方に揃えて、遅れをなくす。
+    ///
+    /// 英作をタブの中の画面遷移で出すと、戻るときにタブの帯の再表示が
+    /// 一拍遅れる。タブ全体を外側のスタックで包む手も試したが、入れ子の
+    /// スタックへ積んだ瞬間に SwiftUI の内部検査で落ちる(検証で確認)。
+    /// プレイヤーと同じ重ね方がいちばん素直で、帯は覆われるだけになる。
     private enum Opened: Equatable {
         case player(UUID)
         case recall(UUID)
@@ -72,10 +75,8 @@ struct RootView: View {
                         case .recall:
                             RecallPracticeView(
                                 track: track,
-                                // 左上の戻るボタン。なぞりの「戻しきった」と同じ道をたどる
-                                onClose: {
-                                    finish(translation: width, predicted: width, width: width)
-                                },
+                                // 左上の戻る。なぞりの「戻しきった」と同じ道をたどる
+                                onClose: { close(width: width) },
                                 onBackDragChanged: { dragX = max(0, $0) },
                                 onBackDragEnded: { translation, predicted in
                                     finish(translation: translation, predicted: predicted, width: width)
@@ -103,6 +104,24 @@ struct RootView: View {
             applySettings()
             // 無音検証。ふだんの起動では何もしない(SkipAudit 参照)
             SkipAudit.startIfRequested(player: player, library: library)
+            #if targetEnvironment(simulator)
+            // 検証用の合図の受け口。シミュレータ版にだけ入る(TestSignals 参照)
+            TestSignals.install { name in
+                switch name {
+                case "music3x.recall.open":
+                    selectedTab = .recall
+                    if let first = library.tracks.first { open(.recall(first.id)) }
+                case "music3x.recall.back":
+                    close(width: max(screenWidth, 1))
+                default:
+                    if name.hasPrefix("music3x.recall.reveal."),
+                       let n = Int(name.split(separator: ".").last ?? "") {
+                        NotificationCenter.default.post(
+                            name: .music3xRevealRow, object: nil, userInfo: ["index": n])
+                    }
+                }
+            }
+            #endif
             voice.onMatch = { group in toggleLearned(group) }
             voice.onUndo = { undoLastToggle() }
             voice.focusGroup = { player.activeGroupIndex ?? player.highlightedGroupIndex }
@@ -191,6 +210,11 @@ struct RootView: View {
         DispatchQueue.main.async {
             withAnimation(.easeOut(duration: 0.28)) { dragX = 0 }
         }
+    }
+
+    /// ボタンからの戻り。なぞりの「戻しきった」と同じ道をたどる。
+    private func close(width: CGFloat) {
+        finish(translation: width, predicted: width, width: width)
     }
 
     /// 指を離したとき、戻しきるか元へ返すかを決める。

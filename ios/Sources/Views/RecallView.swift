@@ -66,10 +66,11 @@ struct RecallListView: View {
 }
 
 /// 練習の本体。日本語だけが並び、行を押すとその英文が現れる。
-/// タブの帯まで覆う重ね画面として開くが、見た目は画面遷移で開いた
-/// ときと同じに組む(戻るボタン+中央の題名+カード型の一覧)。
-/// 遷移そのものを使わないのは、戻るときにタブの帯の再表示が
-/// 一拍遅れるため。見た目と仕組みは別々に選べる。
+///
+/// タブの帯まで覆う重ね画面として開くが、中身は本物の NavigationStack に
+/// 載せる。題名の帯もスクロール時のぼかしも標準のものがそのまま出るので、
+/// 見た目は画面遷移で開いたときと変わらない。帯は隠すのではなく画面ごと
+/// 覆われるだけなので、戻る途中もタブは最初からそこにある。
 struct RecallPracticeView: View {
     let track: Track
     /// 左上の戻るボタン。なぞって戻すのと同じ道をたどる。
@@ -96,86 +97,78 @@ struct RecallPracticeView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            header
-            if visibleIndices.isEmpty {
-                allDone
-            } else {
-                List {
-                    Section {
-                        ForEach(visibleIndices, id: \.self) { index in
-                            row(index)
+        NavigationStack {
+            Group {
+                if visibleIndices.isEmpty {
+                    allDone
+                } else {
+                    List {
+                        Section {
+                            ForEach(visibleIndices, id: \.self) { index in
+                                row(index)
+                            }
+                        } header: {
+                            Text("できた \(done.count) / \(groups.count)")
                         }
-                    } header: {
-                        Text("できた \(done.count) / \(groups.count)")
                     }
+                    .listStyle(.insetGrouped)
+                    .tightTop()
+                    .dynamicTypeSize(settings.textSize)
+                    // 一覧の上を右へなぞると音源の一覧へ戻る
+                    .backSwipe(onChanged: onBackDragChanged, onEnded: onBackDragEnded)
                 }
-                .listStyle(.insetGrouped)
-                .dynamicTypeSize(settings.textSize)
-                // 一覧の上を右へなぞると音源の一覧へ戻る
-                .backSwipe(onChanged: onBackDragChanged, onEnded: onBackDragEnded)
+            }
+            .navigationTitle(track.displayName)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                // 重ね画面なので標準の戻るは出ない。同じ見た目のものを置く
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button(action: onClose) {
+                        HStack(spacing: 3) {
+                            Image(systemName: "chevron.left")
+                                .font(.body.weight(.semibold))
+                            Text("英作")
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .accessibilityIdentifier("recallBack")
+                }
+            // できたものを隠すかどうか。いまの見え方を短い言葉で示す。
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        hideDone.toggle()
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: hideDone ? "checkmark.circle.badge.xmark" : "checkmark.circle")
+                                .font(.footnote.weight(.semibold))
+                            Text(hideDone ? "まだだけ" : "すべて")
+                                .font(.footnote)
+                        }
+                        .foregroundStyle(hideDone ? Color.accentColor : Color.secondary)
+                    }
+                    .accessibilityLabel(hideDone ? "すべて表示する" : "できたものを隠す")
+                    .accessibilityIdentifier("recallFilter")
+                }
+            }
+            .onAppear(perform: load)
+            // 検証用の合図で英文の表示を入り切りできる(TestSignals 参照)
+            .onReceive(NotificationCenter.default.publisher(for: .music3xRevealRow)) { note in
+                if let n = note.userInfo?["index"] as? Int { toggleReveal(n) }
             }
         }
-        // 引っ張って伸びた分も同じ下地で埋まるように、全体を一覧と同じ色にする
-        .background(Color(.systemGroupedBackground).ignoresSafeArea())
-        .onAppear(perform: load)
-    }
-
-    /// 標準のナビゲーションバーと同じ据わりの帯。戻る・題名・絞り込み。
-    private var header: some View {
-        ZStack {
-            Text(track.displayName)
-                .font(.headline)
-                .lineLimit(1)
-                .padding(.horizontal, 96)
-            HStack {
-                Button(action: onClose) {
-                    HStack(spacing: 3) {
-                        Image(systemName: "chevron.left")
-                            .font(.body.weight(.semibold))
-                        Text("英作")
-                    }
-                    .foregroundStyle(.tint)
-                    .contentShape(Rectangle())
-                }
-                .accessibilityIdentifier("recallBack")
-                Spacer()
-                // できたものを隠すかどうか。いまの見え方を短い言葉で示す。
-                Button {
-                    hideDone.toggle()
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: hideDone ? "checkmark.circle.badge.xmark" : "checkmark.circle")
-                            .font(.footnote.weight(.semibold))
-                        Text(hideDone ? "まだだけ" : "すべて")
-                            .font(.footnote)
-                    }
-                    .foregroundStyle(hideDone ? Color.accentColor : Color.secondary)
-                }
-                .accessibilityLabel(hideDone ? "すべて表示する" : "できたものを隠す")
-                .accessibilityIdentifier("recallFilter")
-            }
-        }
-        .padding(.horizontal, 12)
-        .frame(height: 44)
-        .opaqueBar(edges: .top)
-        // 帯の上でも戻るなぞりを受ける
-        .backSwipe(onChanged: onBackDragChanged, onEnded: onBackDragEnded)
     }
 
     /// 絞り込みで全部できているとき。空白のままだと壊れて見える。
     private var allDone: some View {
         VStack(spacing: 12) {
-            Spacer()
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 40))
                 .foregroundStyle(Color.green)
             Text("この教材はぜんぶできています")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-            Spacer()
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .backSwipe(onChanged: onBackDragChanged, onEnded: onBackDragEnded)
     }
 
@@ -221,15 +214,17 @@ struct RecallPracticeView: View {
             .padding(.vertical, 6)
         }
         .contentShape(Rectangle())
-        .onTapGesture {
-            // 押すたびに英文を出したり隠したりする
-            if revealed.contains(index) {
-                revealed.remove(index)
-            } else {
-                revealed.insert(index)
-            }
-        }
+        .onTapGesture { toggleReveal(index) }
         .accessibilityIdentifier("recallRow")
+    }
+
+    /// 英文を出したり隠したりする。
+    private func toggleReveal(_ index: Int) {
+        if revealed.contains(index) {
+            revealed.remove(index)
+        } else {
+            revealed.insert(index)
+        }
     }
 
     private func toggleDone(_ index: Int) {
@@ -249,4 +244,9 @@ struct RecallPracticeView: View {
         groups = cues.grouped()
         done = library.recallDoneGroups(for: track.id, cueCount: cues.count)
     }
+}
+
+extension Notification.Name {
+    /// 検証用: 英作の行の英文表示を外から入り切りする合図。
+    static let music3xRevealRow = Notification.Name("music3xRevealRow")
 }

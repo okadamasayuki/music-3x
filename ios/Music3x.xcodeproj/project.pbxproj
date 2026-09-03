@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0BF589BC939DE4CD9E53CAFC /* TestSignals.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA34903DD919199E40088315 /* TestSignals.swift */; };
 		14411085C7F58CF39A37A612 /* LibraryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9C2DF197A39C62F3D1D5D44 /* LibraryStore.swift */; };
 		14D4C96B978AED96CE564429 /* RecallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6770AC2474109A50A24ECC33 /* RecallView.swift */; };
 		195DE329600015F4170E18F6 /* Phonetic.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6DA0E9AE0593825CA43720AF /* Phonetic.swift */; };
@@ -73,6 +74,7 @@
 		F1A3A59C2686651B2E59D97D /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		F1D50B8DFB7B6FAA98557EC5 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		F362CCEE54E5D9F309A7466C /* Dictation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Dictation.swift; sourceTree = "<group>"; };
+		FA34903DD919199E40088315 /* TestSignals.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestSignals.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -154,6 +156,7 @@
 				F1A3A59C2686651B2E59D97D /* RootView.swift */,
 				F1D50B8DFB7B6FAA98557EC5 /* SettingsView.swift */,
 				651095C6AB565A4B8B7197D3 /* SpeedPresetRow.swift */,
+				FA34903DD919199E40088315 /* TestSignals.swift */,
 				179DAE72CD83F62E190C04DA /* TightTop.swift */,
 				EBC1A8CEAF637D2338BC6374 /* TimeFormatter.swift */,
 				B0A7C444C20CC4B321572CDB /* TranscriptView.swift */,
@@ -257,6 +260,7 @@
 				6907FA5C8A156256F1866130 /* SpeedPresetRow.swift in Sources */,
 				892508D7328267F6238A1304 /* SubtitleCue.swift in Sources */,
 				3B8560EF64AE76541364162B /* SubtitleGroup.swift in Sources */,
+				0BF589BC939DE4CD9E53CAFC /* TestSignals.swift in Sources */,
 				FC94B4411FD9A3A77D3F62C2 /* TightTop.swift in Sources */,
 				97D8A32E3A1E1D57AD0BE32E /* TimeFormatter.swift in Sources */,
 				1EF9180B461651CFF0C4A64C /* Track.swift in Sources */,
