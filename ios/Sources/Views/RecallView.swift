@@ -65,11 +65,18 @@ struct RecallPracticeView: View {
     @State private var done: Set<Int> = []
     /// いま英文を見せている項目。画面を離れると閉じる(練習なので)。
     @State private var revealed: Set<Int> = []
+    /// できたものを隠して、まだの項目だけを出すか。次回も同じ見え方で開く。
+    @AppStorage("recallHideDone") private var hideDone = false
+
+    /// いま画面に出す項目。絞り込み中は、できた印の付いていないものだけ。
+    private var visibleIndices: [Int] {
+        groups.indices.filter { !hideDone || !done.contains($0) }
+    }
 
     var body: some View {
         List {
             Section {
-                ForEach(groups.indices, id: \.self) { index in
+                ForEach(visibleIndices, id: \.self) { index in
                     row(index)
                 }
             } header: {
@@ -84,6 +91,26 @@ struct RecallPracticeView: View {
         .dynamicTypeSize(settings.textSize)
         .navigationTitle(track.displayName)
         .navigationBarTitleDisplayMode(.inline)
+        // 練習中はタブの帯を隠して画面を広く使う。プレイヤー画面と同じ感覚。
+        .toolbar(.hidden, for: .tabBar)
+        .toolbar {
+            // できたものを隠すかどうか。いまの見え方を短い言葉で示す。
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button {
+                    hideDone.toggle()
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: hideDone ? "checkmark.circle.badge.xmark" : "checkmark.circle")
+                            .font(.footnote.weight(.semibold))
+                        Text(hideDone ? "まだだけ" : "すべて")
+                            .font(.footnote)
+                    }
+                    .foregroundStyle(hideDone ? Color.accentColor : Color.secondary)
+                }
+                .accessibilityLabel(hideDone ? "すべて表示する" : "できたものを隠す")
+                .accessibilityIdentifier("recallFilter")
+            }
+        }
         .onAppear(perform: load)
     }
 
