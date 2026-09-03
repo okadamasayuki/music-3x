@@ -102,6 +102,30 @@ final class LibraryStore: ObservableObject {
         save()
     }
 
+    // MARK: - 英作の「できた」印(覚えた印とは別勘定)
+
+    func setRecallDone(_ done: Bool, group: Int, cueCount: Int, for trackID: UUID) {
+        guard let index = tracks.firstIndex(where: { $0.id == trackID }) else { return }
+        // 字幕を差し替えて区切りが変わっていたら、古い印は当てにならないので捨てる
+        if tracks[index].recallCueCount != cueCount {
+            tracks[index].recallDoneGroups = []
+            tracks[index].recallCueCount = cueCount
+        }
+        if done {
+            tracks[index].recallDoneGroups.insert(group)
+        } else {
+            tracks[index].recallDoneGroups.remove(group)
+        }
+        save()
+    }
+
+    /// 保存されている「できた」印が今の字幕に対応しているときだけ返す。
+    func recallDoneGroups(for trackID: UUID, cueCount: Int) -> Set<Int> {
+        guard let track = tracks.first(where: { $0.id == trackID }),
+              track.recallCueCount == cueCount else { return [] }
+        return track.recallDoneGroups
+    }
+
     func clearLearned(for trackID: UUID) {
         guard let index = tracks.firstIndex(where: { $0.id == trackID }) else { return }
         tracks[index].learnedGroups = []

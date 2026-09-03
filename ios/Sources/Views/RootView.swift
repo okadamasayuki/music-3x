@@ -7,7 +7,7 @@ struct RootView: View {
     @EnvironmentObject private var settings: AppSettings
     @EnvironmentObject private var voice: VoiceCommands
 
-    private enum Tab: Hashable { case library, improve, settings }
+    private enum Tab: Hashable { case library, recall, improve, settings }
 
     @State private var selectedTab: Tab = .library
     /// 帯より手前に重ねて開いているプレイヤーの音源。タブの帯まで覆う。
@@ -94,6 +94,13 @@ struct RootView: View {
             }
             .tabItem { Label("ライブラリ", systemImage: "music.note.list") }
             .tag(Tab.library)
+
+            NavigationStack {
+                RecallListView()
+                    .safeAreaInset(edge: .bottom) { miniPlayer }
+            }
+            .tabItem { Label("英作", systemImage: "square.and.pencil") }
+            .tag(Tab.recall)
 
             NavigationStack {
                 ImprovementListView()

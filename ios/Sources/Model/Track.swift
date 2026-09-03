@@ -16,6 +16,11 @@ struct Track: Identifiable, Codable, Equatable {
     /// 覚えた印を付けたときの字幕の件数。字幕を差し替えると項目番号がずれるため、
     /// 件数が変わっていたら印を捨てる判断に使う。
     var learnedCueCount: Int
+    /// 英作の練習で「できた」を付けた項目の番号。覚えた印とは別勘定。
+    /// 聞いて分かることと、日本語から言えることは別の段階のため。
+    var recallDoneGroups: Set<Int>
+    /// できた印を付けたときの字幕の件数。learnedCueCount と同じ役目。
+    var recallCueCount: Int
 
     init(
         id: UUID = UUID(),
@@ -25,7 +30,9 @@ struct Track: Identifiable, Codable, Equatable {
         addedAt: Date = Date(),
         lastPosition: Double = 0,
         learnedGroups: Set<Int> = [],
-        learnedCueCount: Int = 0
+        learnedCueCount: Int = 0,
+        recallDoneGroups: Set<Int> = [],
+        recallCueCount: Int = 0
     ) {
         self.id = id
         self.audioFileName = audioFileName
@@ -35,12 +42,15 @@ struct Track: Identifiable, Codable, Equatable {
         self.lastPosition = lastPosition
         self.learnedGroups = learnedGroups
         self.learnedCueCount = learnedCueCount
+        self.recallDoneGroups = recallDoneGroups
+        self.recallCueCount = recallCueCount
     }
 
     // 既存の保存データには覚えた印が無いので、無い場合は空として読む
     enum CodingKeys: String, CodingKey {
         case id, audioFileName, subtitleFileName, displayName, addedAt, lastPosition
         case learnedGroups, learnedCueCount
+        case recallDoneGroups, recallCueCount
     }
 
     init(from decoder: Decoder) throws {
@@ -53,6 +63,8 @@ struct Track: Identifiable, Codable, Equatable {
         lastPosition = try c.decode(Double.self, forKey: .lastPosition)
         learnedGroups = try c.decodeIfPresent(Set<Int>.self, forKey: .learnedGroups) ?? []
         learnedCueCount = try c.decodeIfPresent(Int.self, forKey: .learnedCueCount) ?? 0
+        recallDoneGroups = try c.decodeIfPresent(Set<Int>.self, forKey: .recallDoneGroups) ?? []
+        recallCueCount = try c.decodeIfPresent(Int.self, forKey: .recallCueCount) ?? 0
     }
 
     var hasSubtitle: Bool { subtitleFileName != nil }

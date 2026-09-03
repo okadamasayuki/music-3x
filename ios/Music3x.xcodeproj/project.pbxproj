@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		14411085C7F58CF39A37A612 /* LibraryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9C2DF197A39C62F3D1D5D44 /* LibraryStore.swift */; };
+		14D4C96B978AED96CE564429 /* RecallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6770AC2474109A50A24ECC33 /* RecallView.swift */; };
 		195DE329600015F4170E18F6 /* Phonetic.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6DA0E9AE0593825CA43720AF /* Phonetic.swift */; };
 		1EF9180B461651CFF0C4A64C /* Track.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FF5423FEBB1CAC5972EFD64 /* Track.swift */; };
 		24D62CE246199DE78D1A7DD4 /* PlayerEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD55C64EF5CF7A134903EC5B /* PlayerEngine.swift */; };
@@ -53,6 +54,7 @@
 		4FF5423FEBB1CAC5972EFD64 /* Track.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Track.swift; sourceTree = "<group>"; };
 		56087E98E2A0581D91A7D9CC /* VoiceCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCommands.swift; sourceTree = "<group>"; };
 		651095C6AB565A4B8B7197D3 /* SpeedPresetRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeedPresetRow.swift; sourceTree = "<group>"; };
+		6770AC2474109A50A24ECC33 /* RecallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecallView.swift; sourceTree = "<group>"; };
 		6DA0E9AE0593825CA43720AF /* Phonetic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Phonetic.swift; sourceTree = "<group>"; };
 		73F58DD76510EE6C78FBF440 /* SubtitleCue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubtitleCue.swift; sourceTree = "<group>"; };
 		8ADD469468560F2CFA56B863 /* ImprovementListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImprovementListView.swift; sourceTree = "<group>"; };
@@ -148,6 +150,7 @@
 				4551A4489DCC1C2D87D6B5F2 /* KeyboardDismiss.swift */,
 				238C0192E608DC061F6D8E2A /* LibraryView.swift */,
 				32FA4B29DC94F1E03CBF1752 /* PlayerView.swift */,
+				6770AC2474109A50A24ECC33 /* RecallView.swift */,
 				F1A3A59C2686651B2E59D97D /* RootView.swift */,
 				F1D50B8DFB7B6FAA98557EC5 /* SettingsView.swift */,
 				651095C6AB565A4B8B7197D3 /* SpeedPresetRow.swift */,
@@ -247,6 +250,7 @@
 				195DE329600015F4170E18F6 /* Phonetic.swift in Sources */,
 				24D62CE246199DE78D1A7DD4 /* PlayerEngine.swift in Sources */,
 				425076259D9B0E623CC0843B /* PlayerView.swift in Sources */,
+				14D4C96B978AED96CE564429 /* RecallView.swift in Sources */,
 				E2C1D8C721EFF7D2C5F3C1D5 /* RootView.swift in Sources */,
 				759B1DF474550BEEF9D696E8 /* SettingsView.swift in Sources */,
 				67312B54FB5660410FAEE721 /* SkipAudit.swift in Sources */,
