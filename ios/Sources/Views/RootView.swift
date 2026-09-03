@@ -72,6 +72,10 @@ struct RootView: View {
                         case .recall:
                             RecallPracticeView(
                                 track: track,
+                                // 左上の戻るボタン。なぞりの「戻しきった」と同じ道をたどる
+                                onClose: {
+                                    finish(translation: width, predicted: width, width: width)
+                                },
                                 onBackDragChanged: { dragX = max(0, $0) },
                                 onBackDragEnded: { translation, predicted in
                                     finish(translation: translation, predicted: predicted, width: width)

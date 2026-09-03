@@ -66,9 +66,14 @@ struct RecallListView: View {
 }
 
 /// 練習の本体。日本語だけが並び、行を押すとその英文が現れる。
-/// タブの帯まで覆う重ね画面として開き、右へなぞると一覧へ戻る。
+/// タブの帯まで覆う重ね画面として開くが、見た目は画面遷移で開いた
+/// ときと同じに組む(戻るボタン+中央の題名+カード型の一覧)。
+/// 遷移そのものを使わないのは、戻るときにタブの帯の再表示が
+/// 一拍遅れるため。見た目と仕組みは別々に選べる。
 struct RecallPracticeView: View {
     let track: Track
+    /// 左上の戻るボタン。なぞって戻すのと同じ道をたどる。
+    var onClose: () -> Void = {}
     /// 戻るなぞり操作の進み具合。重なりを管理している側へ渡す。
     var onBackDragChanged: (CGFloat) -> Void = { _ in }
     var onBackDragEnded: (CGFloat, CGFloat) -> Void = { _, _ in }
@@ -97,25 +102,43 @@ struct RecallPracticeView: View {
                 allDone
             } else {
                 List {
-                    ForEach(visibleIndices, id: \.self) { index in
-                        row(index)
-                            .listRowInsets(EdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 12))
+                    Section {
+                        ForEach(visibleIndices, id: \.self) { index in
+                            row(index)
+                        }
+                    } header: {
+                        Text("できた \(done.count) / \(groups.count)")
                     }
                 }
-                .listStyle(.plain)
+                .listStyle(.insetGrouped)
+                .dynamicTypeSize(settings.textSize)
                 // 一覧の上を右へなぞると音源の一覧へ戻る
                 .backSwipe(onChanged: onBackDragChanged, onEnded: onBackDragEnded)
             }
         }
+        // 引っ張って伸びた分も同じ下地で埋まるように、全体を一覧と同じ色にする
+        .background(Color(.systemGroupedBackground).ignoresSafeArea())
         .onAppear(perform: load)
     }
 
+    /// 標準のナビゲーションバーと同じ据わりの帯。戻る・題名・絞り込み。
     private var header: some View {
-        VStack(spacing: 10) {
-            HStack(spacing: 12) {
-                Text(track.displayName)
-                    .font(.subheadline.weight(.semibold))
-                    .lineLimit(1)
+        ZStack {
+            Text(track.displayName)
+                .font(.headline)
+                .lineLimit(1)
+                .padding(.horizontal, 96)
+            HStack {
+                Button(action: onClose) {
+                    HStack(spacing: 3) {
+                        Image(systemName: "chevron.left")
+                            .font(.body.weight(.semibold))
+                        Text("英作")
+                    }
+                    .foregroundStyle(.tint)
+                    .contentShape(Rectangle())
+                }
+                .accessibilityIdentifier("recallBack")
                 Spacer()
                 // できたものを隠すかどうか。いまの見え方を短い言葉で示す。
                 Button {
@@ -132,19 +155,11 @@ struct RecallPracticeView: View {
                 .accessibilityLabel(hideDone ? "すべて表示する" : "できたものを隠す")
                 .accessibilityIdentifier("recallFilter")
             }
-
-            HStack {
-                Text("できた \(done.count) / \(groups.count)")
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
-                Spacer()
-            }
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 6)
-        .padding(.bottom, 10)
+        .padding(.horizontal, 12)
+        .frame(height: 44)
         .opaqueBar(edges: .top)
-        // 題名の帯を出していないので、ここでも戻る操作を受ける
+        // 帯の上でも戻るなぞりを受ける
         .backSwipe(onChanged: onBackDragChanged, onEnded: onBackDragEnded)
     }
 
@@ -202,9 +217,8 @@ struct RecallPracticeView: View {
                     }
                 }
             }
-            .dynamicTypeSize(settings.textSize)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.vertical, 4)
+            .padding(.vertical, 6)
         }
         .contentShape(Rectangle())
         .onTapGesture {
