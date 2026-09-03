@@ -6,6 +6,11 @@ import UIKit
 /// 聞いて分かることと、日本語から言えることは別の段階なので、
 /// ここの「できた」はライブラリの覚えた印とは別勘定で数える。
 struct RecallListView: View {
+    /// 練習画面を開く操作。画面の重なりは呼び出し側(RootView)が持つ。
+    /// 画面遷移で出すと、戻るときにタブの帯の再表示が一拍遅れるため、
+    /// プレイヤーと同じ「帯ごと覆う重ね画面」で開く。
+    var onOpen: (UUID) -> Void
+
     @EnvironmentObject private var library: LibraryStore
 
     var body: some View {
@@ -16,14 +21,22 @@ struct RecallListView: View {
                 List {
                     Section {
                         ForEach(library.tracks) { track in
-                            NavigationLink {
-                                RecallPracticeView(track: track)
+                            Button {
+                                onOpen(track.id)
                             } label: {
-                                Text(track.displayName)
-                                    .font(.body)
-                                    .lineLimit(2)
-                                    .padding(.vertical, 8)
+                                HStack(spacing: 8) {
+                                    Text(track.displayName)
+                                        .font(.body)
+                                        .lineLimit(2)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .padding(.vertical, 8)
+                                    Image(systemName: "chevron.right")
+                                        .font(.footnote.weight(.semibold))
+                                        .foregroundStyle(.tertiary)
+                                }
+                                .contentShape(Rectangle())
                             }
+                            .buttonStyle(.plain)
                             .accessibilityIdentifier("recallTrackRow")
                         }
                     }
@@ -53,8 +66,12 @@ struct RecallListView: View {
 }
 
 /// 練習の本体。日本語だけが並び、行を押すとその英文が現れる。
+/// タブの帯まで覆う重ね画面として開き、右へなぞると一覧へ戻る。
 struct RecallPracticeView: View {
     let track: Track
+    /// 戻るなぞり操作の進み具合。重なりを管理している側へ渡す。
+    var onBackDragChanged: (CGFloat) -> Void = { _ in }
+    var onBackDragEnded: (CGFloat, CGFloat) -> Void = { _, _ in }
 
     @EnvironmentObject private var library: LibraryStore
     @EnvironmentObject private var settings: AppSettings
@@ -74,28 +91,33 @@ struct RecallPracticeView: View {
     }
 
     var body: some View {
-        List {
-            Section {
-                ForEach(visibleIndices, id: \.self) { index in
-                    row(index)
+        VStack(spacing: 0) {
+            header
+            if visibleIndices.isEmpty {
+                allDone
+            } else {
+                List {
+                    ForEach(visibleIndices, id: \.self) { index in
+                        row(index)
+                            .listRowInsets(EdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 12))
+                    }
                 }
-            } header: {
-                HStack {
-                    Text("できた \(done.count) / \(groups.count)")
-                    Spacer()
-                }
+                .listStyle(.plain)
+                // 一覧の上を右へなぞると音源の一覧へ戻る
+                .backSwipe(onChanged: onBackDragChanged, onEnded: onBackDragEnded)
             }
         }
-        .listStyle(.insetGrouped)
-        .tightTop()
-        .dynamicTypeSize(settings.textSize)
-        .navigationTitle(track.displayName)
-        .navigationBarTitleDisplayMode(.inline)
-        // 練習中はタブの帯を隠して画面を広く使う。プレイヤー画面と同じ感覚。
-        .toolbar(.hidden, for: .tabBar)
-        .toolbar {
-            // できたものを隠すかどうか。いまの見え方を短い言葉で示す。
-            ToolbarItem(placement: .navigationBarTrailing) {
+        .onAppear(perform: load)
+    }
+
+    private var header: some View {
+        VStack(spacing: 10) {
+            HStack(spacing: 12) {
+                Text(track.displayName)
+                    .font(.subheadline.weight(.semibold))
+                    .lineLimit(1)
+                Spacer()
+                // できたものを隠すかどうか。いまの見え方を短い言葉で示す。
                 Button {
                     hideDone.toggle()
                 } label: {
@@ -110,8 +132,36 @@ struct RecallPracticeView: View {
                 .accessibilityLabel(hideDone ? "すべて表示する" : "できたものを隠す")
                 .accessibilityIdentifier("recallFilter")
             }
+
+            HStack {
+                Text("できた \(done.count) / \(groups.count)")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                Spacer()
+            }
         }
-        .onAppear(perform: load)
+        .padding(.horizontal, 16)
+        .padding(.top, 6)
+        .padding(.bottom, 10)
+        .opaqueBar(edges: .top)
+        // 題名の帯を出していないので、ここでも戻る操作を受ける
+        .backSwipe(onChanged: onBackDragChanged, onEnded: onBackDragEnded)
+    }
+
+    /// 絞り込みで全部できているとき。空白のままだと壊れて見える。
+    private var allDone: some View {
+        VStack(spacing: 12) {
+            Spacer()
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 40))
+                .foregroundStyle(Color.green)
+            Text("この教材はぜんぶできています")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            Spacer()
+        }
+        .frame(maxWidth: .infinity)
+        .backSwipe(onChanged: onBackDragChanged, onEnded: onBackDragEnded)
     }
 
     private func row(_ index: Int) -> some View {
@@ -140,6 +190,7 @@ struct RecallPracticeView: View {
                 ForEach(Array((japanese.isEmpty ? lines : japanese).enumerated()), id: \.offset) { _, line in
                     Text(line)
                         .font(.body)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 // 答えの英文は、行を押したときだけ
                 if revealed.contains(index) {
@@ -147,11 +198,13 @@ struct RecallPracticeView: View {
                         Text(line)
                             .font(.body.weight(.medium))
                             .foregroundStyle(.tint)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
             }
+            .dynamicTypeSize(settings.textSize)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.vertical, 6)
+            .padding(.vertical, 4)
         }
         .contentShape(Rectangle())
         .onTapGesture {
