@@ -197,44 +197,18 @@ struct PlayerView: View {
             }
             .disabled(!isLive || player.effectiveDuration <= 0)
 
-            // リピートは重ねて置き、左右の時刻の幅に引きずられず画面の
-            // 中央に固定する。Spacer で挟む形だと時刻の桁数の差だけ
-            // 中心からずれ、真下の再生ボタンと縦が揃わない。
-            ZStack {
-                HStack {
-                    Text(TimeFormatter.string(from: displayedTime))
-                        .accessibilityIdentifier("elapsed")
-                        .font(.caption.monospacedDigit())
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    Text(TimeFormatter.string(from: player.effectiveDuration))
-                        .accessibilityIdentifier("duration")
-                        .font(.caption.monospacedDigit())
-                        .foregroundStyle(.secondary)
-                }
-                repeatTrackButton
+            HStack {
+                Text(TimeFormatter.string(from: displayedTime))
+                    .accessibilityIdentifier("elapsed")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text(TimeFormatter.string(from: player.effectiveDuration))
+                    .accessibilityIdentifier("duration")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
             }
         }
-    }
-
-    /// 最後まで行ったら先頭へ戻して流し続ける切り替え。
-    private var repeatTrackButton: some View {
-        let on = player.repeatTrack
-        return Button {
-            player.repeatTrack.toggle()
-        } label: {
-            Image(systemName: "repeat")
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(on ? Color.white : Color.secondary)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 5)
-                .background(
-                    Capsule().fill(on ? Color.accentColor : Color.secondary.opacity(0.15))
-                )
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("repeatTrack")
-        .accessibilityLabel(on ? "繰り返しを止める" : "最後まで行ったら先頭から繰り返す")
     }
 
 

@@ -3,6 +3,7 @@ import SwiftUI
 struct SettingsView: View {
     @EnvironmentObject private var settings: AppSettings
     @EnvironmentObject private var voice: VoiceCommands
+    @EnvironmentObject private var library: LibraryStore
 
     /// 無料の開発者アカウントで入れたアプリは 7 日で起動できなくなる。
     /// いつ入れ直しが要るのか、開かなくても分かるようにしておく。
@@ -108,6 +109,24 @@ struct SettingsView: View {
                 Toggle(isOn: $settings.hideLearned) {
                     Text("覚えた項目を字幕から隠す")
                 }
+            }
+
+            Section {
+                // いつも聞く教材を決めておくと、開いたときからミニプレイヤーに
+                // 載っていて、ひと押しで鳴らせる
+                Picker("既定の音源", selection: $settings.defaultTrackID) {
+                    Text("なし").tag("")
+                    ForEach(library.tracks) { track in
+                        Text(track.displayName).tag(track.id.uuidString)
+                    }
+                }
+                .accessibilityIdentifier("defaultTrack")
+                Toggle(isOn: $settings.repeatTrack) {
+                    Text("最後まで行ったら先頭から繰り返す")
+                }
+                .accessibilityIdentifier("repeatTrack")
+            } footer: {
+                Text("既定の音源は、アプリを開いたときからミニプレイヤーに載っていて、ひと押しで再生できます。")
             }
             voiceSection
             // 改善メモの送り先はここに出さない。見ても意味が取れない文字列で、

@@ -102,6 +102,21 @@ struct RootView: View {
                 library?.updatePosition(position, for: trackID)
             }
             applySettings()
+            // 既定の音源をミニプレイヤーへ載せておく。いつも同じ教材を聞く
+            // 使い方で、「選んで、開いて、押す」の三手をひと押しに縮める。
+            // 載せるだけで鳴らしはしない。断りなく音を出さないため。
+            if player.currentTrackID == nil,
+               let id = UUID(uuidString: settings.defaultTrackID),
+               let track = library.tracks.first(where: { $0.id == id }) {
+                player.load(
+                    audioURL: library.audioURL(for: track),
+                    subtitleURL: library.subtitleURL(for: track),
+                    title: track.displayName,
+                    trackID: track.id,
+                    startAt: track.lastPosition
+                )
+                player.applyLearned(library.learnedGroups(for: track.id, cueCount: player.cues.count))
+            }
             // 無音検証。ふだんの起動では何もしない(SkipAudit 参照)
             SkipAudit.startIfRequested(player: player, library: library)
             #if targetEnvironment(simulator)
@@ -131,6 +146,7 @@ struct RootView: View {
         .onChange(of: settings.skipLearned) { _ in applySettings() }
         .onChange(of: settings.defaultSpeed) { _ in applySettings() }
         .onChange(of: settings.showTranslation) { _ in applySettings() }
+        .onChange(of: settings.repeatTrack) { _ in applySettings() }
         .onChange(of: settings.voiceControl) { _ in updateVoice() }
         .onChange(of: player.currentTrackID) { _ in updateVocabulary() }
     }
@@ -289,6 +305,7 @@ struct RootView: View {
         // 速度の操作はプレイヤー画面から外したので、設定を変えたら再生中でもすぐ反映する
         player.speed = settings.defaultSpeed
         player.showsTranslation = settings.showTranslation
+        player.repeatTrack = settings.repeatTrack
     }
 }
 

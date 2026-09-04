@@ -34,6 +34,18 @@ final class AppSettings: ObservableObject {
         didSet { store.set(voiceControl, forKey: Keys.voiceControl) }
     }
 
+    /// 最後まで行ったら先頭へ戻して流し続けるか。
+    /// プレイヤー画面のボタンは外したので、ここで選ぶ。
+    @Published var repeatTrack: Bool {
+        didSet { store.set(repeatTrack, forKey: Keys.repeatTrack) }
+    }
+
+    /// 既定の音源(UUID の文字列、空なら無し)。アプリを開いたときに
+    /// ミニプレイヤーへ載せておき、選んで開く手間を省く。
+    @Published var defaultTrackID: String {
+        didSet { store.set(defaultTrackID, forKey: Keys.defaultTrackID) }
+    }
+
     /// 改善メモの送り先。家の Mac の「ローカルホスト名:ポート」。
     @Published var improveHost: String {
         didSet { store.set(improveHost, forKey: Keys.improveHost) }
@@ -78,6 +90,8 @@ final class AppSettings: ObservableObject {
         static let textSizeStep = "textSizeStep"
         static let voiceControl = "voiceControl"
         static let improveHost = "improveHost"
+        static let repeatTrack = "repeatTrack"
+        static let defaultTrackID = "defaultTrackID"
     }
 
     private let store: UserDefaults
@@ -94,6 +108,8 @@ final class AppSettings: ObservableObject {
         // 既定では切っておく。断りなくマイクを開かないため。
         voiceControl = (store.object(forKey: Keys.voiceControl) as? Bool) ?? false
         improveHost = (store.object(forKey: Keys.improveHost) as? String) ?? Self.defaultImproveHost
+        repeatTrack = (store.object(forKey: Keys.repeatTrack) as? Bool) ?? false
+        defaultTrackID = (store.object(forKey: Keys.defaultTrackID) as? String) ?? ""
     }
 
     func resetToDefaults() {
@@ -105,5 +121,7 @@ final class AppSettings: ObservableObject {
         textSizeStep = Self.defaultTextSizeStep
         voiceControl = false
         improveHost = Self.defaultImproveHost
+        repeatTrack = false
+        defaultTrackID = ""
     }
 }
