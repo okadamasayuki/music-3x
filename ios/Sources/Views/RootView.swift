@@ -148,6 +148,8 @@ struct RootView: View {
         .onChange(of: settings.showTranslation) { _ in applySettings() }
         .onChange(of: settings.repeatTrack) { _ in applySettings() }
         .onChange(of: settings.voiceControl) { _ in updateVoice() }
+        // 再生の入り切りに合わせてマイクも入り切りする(電池のため)
+        .onChange(of: player.isPlaying) { _ in updateVoice() }
         .onChange(of: player.currentTrackID) { _ in updateVocabulary() }
     }
 
@@ -249,12 +251,15 @@ struct RootView: View {
     }
 
     private func updateVoice() {
-        if settings.voiceControl {
+        // 聞くのは鳴っている間だけ。止めたまま・画面を消したままでも
+        // マイクと認識を回し続けると、聞く相手がいないのに電池を食い、
+        // 端末が熱くなる。印を付けたい場面は再生中しかない。
+        if settings.voiceControl, player.isPlaying {
             updateVocabulary()
             voice.start()
         } else {
             voice.stop()
-            voice.vocabulary = [:]
+            if !settings.voiceControl { voice.vocabulary = [:] }
             // 録音のために変えた音の設定を、再生だけの形へ戻す
             player.configureAudioSession()
         }

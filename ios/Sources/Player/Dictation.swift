@@ -44,6 +44,12 @@ final class Dictation: NSObject, ObservableObject {
     private var quickDeaths = 0
     /// 中断と復帰の合図の聞き役。止めるときに外す。
     private var observers: [NSObjectProtocol] = []
+    /// 最後に聞き取りが増えた時刻。止め忘れの見張りに使う。
+    private var lastProgress = Date()
+    /// 書き取りを始めた時刻。
+    private var sessionBegan = Date()
+    /// 止め忘れの見張り。マイクと認識は回しているだけで電池を食う。
+    private var watchdog: Timer?
 
     func start() {
         guard !isRecording else { return }
@@ -52,6 +58,8 @@ final class Dictation: NSObject, ObservableObject {
         committed = ""
         partial = ""
         quickDeaths = 0
+        lastProgress = Date()
+        sessionBegan = Date()
         SFSpeechRecognizer.requestAuthorization { [weak self] status in
             DispatchQueue.main.async {
                 guard status == .authorized else {
@@ -72,6 +80,8 @@ final class Dictation: NSObject, ObservableObject {
     }
 
     func stop() {
+        watchdog?.invalidate()
+        watchdog = nil
         removeObservers()
         task?.cancel()
         task = nil
@@ -122,6 +132,26 @@ final class Dictation: NSObject, ObservableObject {
         installObservers()
         isSuspended = false
         isRecording = true
+        startWatchdog()
+    }
+
+    /// 止め忘れの防波堤。
+    ///
+    /// 書き取りは完了ボタンまで聞き続ける約束だが、止め忘れたまま
+    /// 放っておくと、マイクと認識が回り続けて電池が減り端末が熱くなる。
+    /// 聞き取りがまったく増えないまま 10 分たつか、どれだけ増えていても
+    /// 合計 1 時間を超えたら、文を残したまま自動で閉じる。
+    private func startWatchdog() {
+        watchdog?.invalidate()
+        watchdog = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
+            guard let self, self.isRecording else { return }
+            let idle = Date().timeIntervalSince(self.lastProgress)
+            let total = Date().timeIntervalSince(self.sessionBegan)
+            if idle > 10 * 60 || total > 60 * 60 {
+                self.problem = "書き取りを自動で閉じました。ここまでの文は残っています。"
+                self.stop()
+            }
+        }
     }
 
     /// 書き取り用にマイクの通り道を整える。始めるときと、中断から
@@ -204,7 +234,11 @@ final class Dictation: NSObject, ObservableObject {
         }
         partial = text
         if !partial.isEmpty { quickDeaths = 0 }
+        let before = transcript
         transcript = Self.join(committed, partial)
+        // 文が実際に増減したときだけ「進みあり」と数える。雑音では滅多に
+        // 変わらないので、止め忘れの見張り(watchdog)がちゃんと働く。
+        if transcript != before { lastProgress = Date() }
     }
 
     /// 区切りが締め切られた。文を確定分へ移し、続けられるなら組み直す。
