@@ -6,8 +6,9 @@ struct RootView: View {
     @EnvironmentObject private var player: PlayerEngine
     @EnvironmentObject private var settings: AppSettings
     @EnvironmentObject private var voice: VoiceCommands
+    @EnvironmentObject private var wordDecks: WordDeckStore
 
-    private enum Tab: Hashable { case library, recall, improve, settings }
+    private enum Tab: Hashable { case library, word, recall, improve, settings }
 
     /// 帯より手前に重ねる画面。どちらもタブの帯まで覆う。
     ///
@@ -18,10 +19,13 @@ struct RootView: View {
     private enum Opened: Equatable {
         case player(UUID)
         case recall(UUID)
+        case wordDeck(String)
 
-        var trackID: UUID {
+        /// Track を伴う画面(プレイヤー・英作)の音源 ID。単語デッキは持たない。
+        var trackID: UUID? {
             switch self {
             case .player(let id), .recall(let id): return id
+            case .wordDeck: return nil
             }
         }
     }
@@ -36,14 +40,20 @@ struct RootView: View {
     @State private var lastVoiceToggle: (group: Int, becameLearned: Bool)?
 
     private var openedTrack: Track? {
-        opened.flatMap { o in library.tracks.first(where: { $0.id == o.trackID }) }
+        opened.flatMap { o in o.trackID.flatMap { id in library.tracks.first(where: { $0.id == id }) } }
+    }
+
+    /// いま開いている単語デッキの ID(単語プレイヤーのとき)
+    private var openedDeckID: String? {
+        if case .wordDeck(let id) = opened { return id }
+        return nil
     }
 
     var body: some View {
         GeometryReader { proxy in
             let width = max(proxy.size.width, 1)
             let progress = min(max(dragX / width, 0), 1)   // 0=開いている 1=閉じきった
-            let isOpen = openedTrack != nil
+            let isOpen = opened != nil
 
             ZStack(alignment: .leading) {
                 tabs
@@ -57,31 +67,46 @@ struct RootView: View {
                     )
 
                 // タブより手前に重ねる。帯まで覆うことで、字幕に使える範囲が広がる。
-                if let opened, let track = openedTrack {
+                if let opened {
                     Group {
                         switch opened {
                         case .player:
-                            PlayerView(
-                                track: track,
-                                nowPlayingLines: currentLines,
-                                onOpenNowPlaying: {
-                                    if let id = player.currentTrackID { open(.player(id)) }
-                                },
-                                onBackDragChanged: { dragX = max(0, $0) },
-                                onBackDragEnded: { translation, predicted in
-                                    finish(translation: translation, predicted: predicted, width: width)
-                                }
-                            )
+                            if let track = openedTrack {
+                                PlayerView(
+                                    track: track,
+                                    nowPlayingLines: currentLines,
+                                    onOpenNowPlaying: {
+                                        if let id = player.currentTrackID { open(.player(id)) }
+                                    },
+                                    onBackDragChanged: { dragX = max(0, $0) },
+                                    onBackDragEnded: { translation, predicted in
+                                        finish(translation: translation, predicted: predicted, width: width)
+                                    }
+                                )
+                            }
                         case .recall:
-                            RecallPracticeView(
-                                track: track,
-                                // 左上の戻る。なぞりの「戻しきった」と同じ道をたどる
-                                onClose: { close(width: width) },
-                                onBackDragChanged: { dragX = max(0, $0) },
-                                onBackDragEnded: { translation, predicted in
-                                    finish(translation: translation, predicted: predicted, width: width)
-                                }
-                            )
+                            if let track = openedTrack {
+                                RecallPracticeView(
+                                    track: track,
+                                    // 左上の戻る。なぞりの「戻しきった」と同じ道をたどる
+                                    onClose: { close(width: width) },
+                                    onBackDragChanged: { dragX = max(0, $0) },
+                                    onBackDragEnded: { translation, predicted in
+                                        finish(translation: translation, predicted: predicted, width: width)
+                                    }
+                                )
+                            }
+                        case .wordDeck(let id):
+                            if let deck = wordDecks.deck(id: id) {
+                                WordDeckPlayerView(
+                                    deck: deck,
+                                    onClose: { close(width: width) },
+                                    onBackDragChanged: { dragX = max(0, $0) },
+                                    onBackDragEnded: { translation, predicted in
+                                        finish(translation: translation, predicted: predicted, width: width)
+                                    }
+                                )
+                            }
                         }
                     }
                     .background(Color(.systemBackground).ignoresSafeArea())
@@ -161,6 +186,13 @@ struct RootView: View {
             }
             .tabItem { Label("ライブラリ", systemImage: "music.note.list") }
             .tag(Tab.library)
+
+            NavigationStack {
+                WordDeckListView(onOpen: { open(.wordDeck($0)) })
+                    .safeAreaInset(edge: .bottom) { miniPlayer }
+            }
+            .tabItem { Label("単語", systemImage: "character.book.closed") }
+            .tag(Tab.word)
 
             NavigationStack {
                 RecallListView(onOpen: { open(.recall($0)) })

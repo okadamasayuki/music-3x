@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0BEAA25AF0E753C15E33BC65 /* WordDeckListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFCFD4A8D61216EF4258FC83 /* WordDeckListView.swift */; };
 		0BF589BC939DE4CD9E53CAFC /* TestSignals.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA34903DD919199E40088315 /* TestSignals.swift */; };
 		14411085C7F58CF39A37A612 /* LibraryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9C2DF197A39C62F3D1D5D44 /* LibraryStore.swift */; };
 		14D4C96B978AED96CE564429 /* RecallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6770AC2474109A50A24ECC33 /* RecallView.swift */; };
@@ -24,7 +25,10 @@
 		67312B54FB5660410FAEE721 /* SkipAudit.swift in Sources */ = {isa = PBXBuildFile; fileRef = A59369153E348D571ACC602D /* SkipAudit.swift */; };
 		6846A908AA81EE994D6ACF5C /* InstallExpiry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D9B522BD08B711725C2FED3 /* InstallExpiry.swift */; };
 		6907FA5C8A156256F1866130 /* SpeedPresetRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 651095C6AB565A4B8B7197D3 /* SpeedPresetRow.swift */; };
+		6B9E42E6B7F32F184AAB05A5 /* WordDeckPlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72EB8BF490FAE7434D3117C1 /* WordDeckPlayerView.swift */; };
+		6C31E8AEEC7DD627B523AEC3 /* WordDeck.swift in Sources */ = {isa = PBXBuildFile; fileRef = 779E1CBF746B8688F0F74353 /* WordDeck.swift */; };
 		6DA33D03029AC455309C8290 /* NowPlayingArtwork.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBCB560C444E0739E09CED95 /* NowPlayingArtwork.swift */; };
+		74FC255D2D4ED0F3FDABF863 /* WordDeckPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95BE8F6C35422706E0074312 /* WordDeckPlayer.swift */; };
 		752628E255A5099B5B020FB4 /* Dictation.swift in Sources */ = {isa = PBXBuildFile; fileRef = F362CCEE54E5D9F309A7466C /* Dictation.swift */; };
 		759B1DF474550BEEF9D696E8 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1D50B8DFB7B6FAA98557EC5 /* SettingsView.swift */; };
 		892508D7328267F6238A1304 /* SubtitleCue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73F58DD76510EE6C78FBF440 /* SubtitleCue.swift */; };
@@ -57,10 +61,13 @@
 		651095C6AB565A4B8B7197D3 /* SpeedPresetRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeedPresetRow.swift; sourceTree = "<group>"; };
 		6770AC2474109A50A24ECC33 /* RecallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecallView.swift; sourceTree = "<group>"; };
 		6DA0E9AE0593825CA43720AF /* Phonetic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Phonetic.swift; sourceTree = "<group>"; };
+		72EB8BF490FAE7434D3117C1 /* WordDeckPlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordDeckPlayerView.swift; sourceTree = "<group>"; };
 		73F58DD76510EE6C78FBF440 /* SubtitleCue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubtitleCue.swift; sourceTree = "<group>"; };
+		779E1CBF746B8688F0F74353 /* WordDeck.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordDeck.swift; sourceTree = "<group>"; };
 		8ADD469468560F2CFA56B863 /* ImprovementListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImprovementListView.swift; sourceTree = "<group>"; };
 		8E4F269A9F70B5935E1FD9A2 /* SubtitleGroup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubtitleGroup.swift; sourceTree = "<group>"; };
 		92E47C116DC2EBC75ACC3ED1 /* ImprovementResults.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImprovementResults.swift; sourceTree = "<group>"; };
+		95BE8F6C35422706E0074312 /* WordDeckPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordDeckPlayer.swift; sourceTree = "<group>"; };
 		9EC205791C02201DC0E5A6F0 /* MacLink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacLink.swift; sourceTree = "<group>"; };
 		A59369153E348D571ACC602D /* SkipAudit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkipAudit.swift; sourceTree = "<group>"; };
 		B0A7C444C20CC4B321572CDB /* TranscriptView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptView.swift; sourceTree = "<group>"; };
@@ -69,6 +76,7 @@
 		CDB3694C9A822AF1D88D82E7 /* Music3xApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Music3xApp.swift; sourceTree = "<group>"; };
 		DBCB560C444E0739E09CED95 /* NowPlayingArtwork.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NowPlayingArtwork.swift; sourceTree = "<group>"; };
 		DD55C64EF5CF7A134903EC5B /* PlayerEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerEngine.swift; sourceTree = "<group>"; };
+		DFCFD4A8D61216EF4258FC83 /* WordDeckListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordDeckListView.swift; sourceTree = "<group>"; };
 		E3D652ECB1E12DA1EF13B226 /* CueListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CueListView.swift; sourceTree = "<group>"; };
 		EBC1A8CEAF637D2338BC6374 /* TimeFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeFormatter.swift; sourceTree = "<group>"; };
 		F1A3A59C2686651B2E59D97D /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
@@ -112,6 +120,7 @@
 				DD55C64EF5CF7A134903EC5B /* PlayerEngine.swift */,
 				A59369153E348D571ACC602D /* SkipAudit.swift */,
 				56087E98E2A0581D91A7D9CC /* VoiceCommands.swift */,
+				95BE8F6C35422706E0074312 /* WordDeckPlayer.swift */,
 			);
 			path = Player;
 			sourceTree = "<group>";
@@ -139,6 +148,7 @@
 				73F58DD76510EE6C78FBF440 /* SubtitleCue.swift */,
 				8E4F269A9F70B5935E1FD9A2 /* SubtitleGroup.swift */,
 				4FF5423FEBB1CAC5972EFD64 /* Track.swift */,
+				779E1CBF746B8688F0F74353 /* WordDeck.swift */,
 			);
 			path = Model;
 			sourceTree = "<group>";
@@ -161,6 +171,8 @@
 				EBC1A8CEAF637D2338BC6374 /* TimeFormatter.swift */,
 				B0A7C444C20CC4B321572CDB /* TranscriptView.swift */,
 				21DCDD447820262337CE6794 /* TranslationToggle.swift */,
+				DFCFD4A8D61216EF4258FC83 /* WordDeckListView.swift */,
+				72EB8BF490FAE7434D3117C1 /* WordDeckPlayerView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -267,6 +279,10 @@
 				5B438BC6E095BF1BB584BD11 /* TranscriptView.swift in Sources */,
 				F351291D6EFA126FE83CE340 /* TranslationToggle.swift in Sources */,
 				BFC021A1ECA8F4B65A0F184B /* VoiceCommands.swift in Sources */,
+				6C31E8AEEC7DD627B523AEC3 /* WordDeck.swift in Sources */,
+				0BEAA25AF0E753C15E33BC65 /* WordDeckListView.swift in Sources */,
+				74FC255D2D4ED0F3FDABF863 /* WordDeckPlayer.swift in Sources */,
+				6B9E42E6B7F32F184AAB05A5 /* WordDeckPlayerView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
