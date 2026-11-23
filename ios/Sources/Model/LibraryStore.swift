@@ -78,6 +78,12 @@ final class LibraryStore: ObservableObject {
         save()
     }
 
+    /// 一覧の並び順を入れ替える(長押しで上下に動かしたとき)
+    func move(fromOffsets source: IndexSet, toOffset destination: Int) {
+        tracks.move(fromOffsets: source, toOffset: destination)
+        save()
+    }
+
     func rename(_ track: Track, to newName: String) {
         let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, let index = tracks.firstIndex(where: { $0.id == track.id }) else { return }

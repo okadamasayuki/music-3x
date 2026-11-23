@@ -34,6 +34,11 @@ struct PlayerView: View {
     @State private var dockDragIsVertical: Bool?
     /// 開いたときの盤の高さ。なぞりに合わせて字幕の領域を広げ縮めするのに使う。
     @State private var panelHeight: CGFloat = 0
+    /// 字幕が再生位置に追従しているか(手で動かすと外れる)
+    @State private var isFollowing = true
+    /// 名前を変える欄を開いているか
+    @State private var isRenaming = false
+    @State private var renameText = ""
 
     /// この画面の音源が、いま再生機に載っているか。
     private var isLive: Bool { player.currentTrackID == track.id }
@@ -54,7 +59,7 @@ struct PlayerView: View {
 
             Group {
                 if isLive {
-                    TranscriptView(onToggleLearned: setLearned)
+                    TranscriptView(onToggleLearned: setLearned, isFollowing: $isFollowing)
                 } else {
                     previewList
                 }
@@ -87,6 +92,11 @@ struct PlayerView: View {
         // そのままだとホームバーの操作に取られてホーム画面へ戻ってしまう。
         .defersSystemGestures(on: dockCollapsed ? .bottom : [])
         .onAppear(perform: loadIfNeeded)
+        .alert("名前を変更", isPresented: $isRenaming) {
+            TextField("名前", text: $renameText)
+            Button("キャンセル", role: .cancel) {}
+            Button("保存") { library.rename(liveTrack, to: renameText) }
+        }
         .fullScreenCover(isPresented: $showListeningTest) {
             ListeningTestView(track: liveTrack, onClose: { showListeningTest = false })
         }
@@ -112,16 +122,27 @@ struct PlayerView: View {
             .accessibilityLabel("一覧へ戻る")
             .accessibilityIdentifier("playerClose")
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text("NOW PLAYING")
-                    .font(.system(size: 11, weight: .bold, design: .rounded))
-                    .tracking(2)
-                    .foregroundStyle(Night.cyan)
-                Text(liveTrack.displayName)
-                    .font(.system(.subheadline, design: .rounded).weight(.semibold))
-                    .lineLimit(1)
+            // 名前を押すと名前を変えられる
+            Button {
+                renameText = liveTrack.displayName
+                isRenaming = true
+            } label: {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("NOW PLAYING")
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .tracking(2)
+                        .foregroundStyle(Night.cyan)
+                    Text(liveTrack.displayName)
+                        .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .buttonStyle(.plain)
+            .accessibilityHint("押すと名前を変えられます")
+            .accessibilityIdentifier("playerTitle")
 
             // 聞き取りテストと同じ物差し(教材全体の何項目目か)
             Text(positionCaption)
@@ -179,6 +200,16 @@ struct PlayerView: View {
                 // 字幕の領域が広がる。なぞっている途中もこの高さを指に合わせて変えるので、
                 // 下げるにつれて単語が下からぞろぞろ現れる。
                 .frame(height: dockLayoutHeight, alignment: .top)
+                // 「現在位置へ」は盤の上端に乗せ、盤と一緒に動かす。字幕の側に置くと
+                // 盤を上げ下げしたとき一拍遅れて追いかけてくるため。
+                .overlay(alignment: .topTrailing) {
+                    if isLive && !isFollowing {
+                        followButton
+                            .padding(.trailing, 16)
+                            .alignmentGuide(.top) { $0[.bottom] + 10 }
+                            .transition(.opacity.combined(with: .scale(scale: 0.9)))
+                    }
+                }
                 .offset(y: dockOverPull)
         }
         .onPreferenceChange(PanelHeightKey.self) { height in
@@ -277,6 +308,22 @@ struct PlayerView: View {
         .accessibilityAction(named: dockCollapsed ? "操作盤を開く" : "操作盤を畳む") {
             setDock(collapsed: !dockCollapsed)
         }
+    }
+
+    /// 手で字幕を動かして追従が外れたとき、今の項目へ戻すボタン
+    private var followButton: some View {
+        Button {
+            withAnimation(.easeOut(duration: 0.2)) { isFollowing = true }
+        } label: {
+            Label("現在位置へ", systemImage: "location.fill")
+                .font(.footnote.weight(.semibold))
+                .padding(.horizontal, 14).padding(.vertical, 9)
+                .background(Capsule().fill(Night.glow))
+                .foregroundStyle(.white)
+                .shadow(color: Night.blue.opacity(0.5), radius: 12, x: 0, y: 4)
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("followCurrent")
     }
 
     private func setDock(collapsed: Bool) {

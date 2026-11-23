@@ -9,7 +9,9 @@ struct TranscriptView: View {
     /// 覚えた印の変更を保存するために呼び出し側へ渡す
     var onToggleLearned: (Int, Bool) -> Void
 
-    @State private var isFollowing = true
+    /// 再生位置に追従しているか。手で動かすと外れる。戻すボタンは操作盤の上に
+    /// 乗せてあり(盤と一緒に動かすため)、状態はプレイヤー側と分け合う。
+    @Binding var isFollowing: Bool
 
     /// 画面に出す項目。設定によっては覚えた分を伏せる。
     private var visibleGroups: [SubtitleGroup] {
@@ -48,24 +50,12 @@ struct TranscriptView: View {
                     .padding(.vertical, 8)
                 }
             }
-            .overlay(alignment: .bottomTrailing) {
-                if !isFollowing {
-                    Button {
-                        isFollowing = true
-                        scroll(proxy, animated: true)
-                    } label: {
-                        Label("現在位置へ", systemImage: "location.fill")
-                            .font(.footnote.weight(.semibold))
-                            .padding(.horizontal, 14).padding(.vertical, 9)
-                            .background(Capsule().fill(Night.glow))
-                            .foregroundStyle(.white)
-                            .shadow(color: Night.blue.opacity(0.5), radius: 12, x: 0, y: 4)
-                    }
-                    .padding(16)
-                }
-            }
             .onChange(of: player.currentGroupIndex) { _ in
                 if isFollowing { scroll(proxy, animated: true) }
+            }
+            // 「現在位置へ」で追従に戻したら、その場で今の項目へ寄せる
+            .onChange(of: isFollowing) { following in
+                if following { scroll(proxy, animated: true) }
             }
             .onAppear { scroll(proxy, animated: false) }
             .simultaneousGesture(
