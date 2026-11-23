@@ -145,6 +145,8 @@ struct RootView: View {
                 case "music3x.player.open":
                     selectedTab = .library
                     if let first = library.tracks.first { open(.player(first.id)) }
+                case "music3x.player.unfollow":
+                    NotificationCenter.default.post(name: .music3xUnfollow, object: nil)
                 case "music3x.player.play": player.play()
                 case "music3x.player.pause": player.pause()
                 case "music3x.player.prev": player.goToPreviousGroup()

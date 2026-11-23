@@ -100,6 +100,10 @@ struct PlayerView: View {
         .fullScreenCover(isPresented: $showListeningTest) {
             ListeningTestView(track: liveTrack, onClose: { showListeningTest = false })
         }
+        // 検証用: 手で字幕を動かしたのと同じく追従を外す(TestSignals 参照)
+        .onReceive(NotificationCenter.default.publisher(for: .music3xUnfollow)) { _ in
+            isFollowing = false
+        }
         // 検証用の合図でテストを開ける(TestSignals 参照)
         .onReceive(NotificationCenter.default.publisher(for: .music3xListeningTest)) { note in
             if note.userInfo?["action"] as? String == "open" { showListeningTest = true }
@@ -216,7 +220,9 @@ struct PlayerView: View {
                     if isLive && !isFollowing {
                         followButton
                             .padding(.trailing, 16)
-                            .alignmentGuide(.top) { $0[.bottom] + 10 }
+                            // 盤の外(上端の 16 上)に出す。字幕の右下に置いていた
+                            // ときと同じ位置関係のまま、盤と一緒に動く。
+                            .offset(y: -(Self.followButtonHeight + 16))
                             .transition(.opacity.combined(with: .scale(scale: 0.9)))
                     }
                 }
@@ -330,6 +336,8 @@ struct PlayerView: View {
     /// 盤のきわで字幕をスクロールすることはまずないので、こちらを優先する。
     private static let dockGrabBand: CGFloat = 40
 
+    private static let followButtonHeight: CGFloat = 36
+
     /// 手で字幕を動かして追従が外れたとき、今の項目へ戻すボタン
     private var followButton: some View {
         Button {
@@ -337,7 +345,8 @@ struct PlayerView: View {
         } label: {
             Label("現在位置へ", systemImage: "location.fill")
                 .font(.footnote.weight(.semibold))
-                .padding(.horizontal, 14).padding(.vertical, 9)
+                .padding(.horizontal, 14)
+                .frame(height: Self.followButtonHeight)
                 .background(Capsule().fill(Night.glow))
                 .foregroundStyle(.white)
                 .shadow(color: Night.blue.opacity(0.5), radius: 12, x: 0, y: 4)
@@ -843,5 +852,10 @@ private struct PanelHeightKey: PreferenceKey {
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
         value = max(value, nextValue())
     }
+}
+
+extension Notification.Name {
+    /// 検証用: 字幕の追従を外す合図
+    static let music3xUnfollow = Notification.Name("music3xUnfollow")
 }
 

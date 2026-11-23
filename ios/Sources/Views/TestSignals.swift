@@ -15,7 +15,8 @@ enum TestSignals {
         let names = ["music3x.recall.open", "music3x.recall.back",
                      "music3x.player.open", "music3x.player.back",
                      "music3x.player.play", "music3x.player.pause",
-                     "music3x.player.prev", "music3x.player.next", "music3x.player.state"]
+                     "music3x.player.prev", "music3x.player.next", "music3x.player.state",
+                     "music3x.player.unfollow"]
             + (0..<10).map { "music3x.recall.reveal.\($0)" }
             + (0..<20).map { "music3x.player.jump.\($0)" }
             + (0..<20).map { "music3x.player.learn.\($0)" }
