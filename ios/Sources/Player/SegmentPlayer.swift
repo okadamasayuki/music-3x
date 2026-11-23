@@ -10,6 +10,12 @@ final class SegmentPlayer: ObservableObject {
 
     @Published private(set) var isPlaying = false
 
+    /// 検証中に音を出さないための元栓。シミュレータを合図で動かしている間だけ閉める
+    /// (RootView の TestSignals 受け口)。止め方は PlayerEngine.auditHardMuted と同じで、
+    /// 音量ではなく isMuted を閉めるので、鳴り終わりの見張りなどの動きは変わらない。
+    static var hardMuted = false
+    var isHardMuted: Bool { player.isMuted }
+
     private let player = AVPlayer()
     private var boundaryObserver: Any?
     private var endObserver: NSObjectProtocol?
@@ -58,6 +64,7 @@ final class SegmentPlayer: ObservableObject {
         generation += 1
         let my = generation
         onFinish = finished
+        player.isMuted = Self.hardMuted
         try? AVAudioSession.sharedInstance().setActive(true)
         player.seek(
             to: CMTime(seconds: max(0, start), preferredTimescale: 600),

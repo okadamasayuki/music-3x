@@ -482,8 +482,8 @@ struct ListeningTestView: View {
         case "undo": undoLastMark()
         case "close": onClose()
         case "state":
-            NSLog("[TEST] listen phase=%@ pos=%d/%d group=%@ known=%d notYet=%d learned=%@",
-                  "\(phase)", position, queue.count,
+            NSLog("[TEST] listen phase=%@ muted=%@ pos=%d/%d group=%@ known=%d notYet=%d learned=%@",
+                  "\(phase)", String(segment.isHardMuted), position, queue.count,
                   currentGroup.map { String($0.id) } ?? "nil",
                   knownCount, notYet.count,
                   library.learnedGroups(for: track.id, cueCount: cues.count)

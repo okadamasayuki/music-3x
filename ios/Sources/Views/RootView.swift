@@ -122,6 +122,10 @@ struct RootView: View {
             #if targetEnvironment(simulator)
             // 検証用の合図の受け口。シミュレータ版にだけ入る(TestSignals 参照)
             TestSignals.install { name in
+                // 合図で動かしている間は音を出さない。検証のたびに Mac から
+                // 教材の声が流れて邪魔になるため。合図が届いた時点で必ず閉める。
+                player.auditHardMuted = true
+                SegmentPlayer.hardMuted = true
                 switch name {
                 case "music3x.recall.open":
                     selectedTab = .recall
@@ -136,9 +140,10 @@ struct RootView: View {
                 case "music3x.player.prev": player.goToPreviousGroup()
                 case "music3x.player.next": player.goToNextGroup()
                 case "music3x.player.state":
-                    NSLog("[TEST] active=%@ playing=%@ learned=%@ hasPrev=%@ hasNext=%@ time=%.2f",
+                    NSLog("[TEST] active=%@ playing=%@ muted=%@ learned=%@ hasPrev=%@ hasNext=%@ time=%.2f",
                           player.activeGroupIndex.map(String.init) ?? "nil",
                           String(player.isPlaying),
+                          String(player.auditHardMuted),
                           player.learnedGroups.sorted().map(String.init).joined(separator: ","),
                           String(player.hasPreviousGroup), String(player.hasNextGroup),
                           player.currentTime)
