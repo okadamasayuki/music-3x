@@ -67,6 +67,7 @@ struct ListeningTestView: View {
     @State private var sessionStart = 0
 
     private static let delayChoices: [Double] = [0, 1, 2, 3, 5, 8]
+    private static let toastHeight: CGFloat = 38
 
     private var currentGroup: SubtitleGroup? {
         guard queue.indices.contains(position), groups.indices.contains(queue[position]) else { return nil }
@@ -84,9 +85,13 @@ struct ListeningTestView: View {
                 .contentShape(Rectangle())
                 // 答えを待っている間は、画面のどこを押しても答えを出せる
                 .onTapGesture { if phase == .listening || phase == .waiting { reveal() } }
-                .overlay(alignment: .top) { toastView }
             if phase != .finished && phase != .empty && phase != .loading {
                 bottomButtons
+                    // 「覚えた」「取り消した」の知らせはボタンのすぐ上に出す。上に出すと
+                    // 答えのカードの上端に重なってしまうため。並びはずらさない(重ねて出す)。
+                    .overlay(alignment: .top) {
+                        toastView.offset(y: -(Self.toastHeight + 8))
+                    }
             }
         }
         .foregroundStyle(.white)
@@ -325,12 +330,13 @@ struct ListeningTestView: View {
                     .lineLimit(1)
             }
             .padding(.horizontal, 16)
-            .frame(height: 38)
-            .background(Capsule().fill(Color.white.opacity(0.12)))
-            .overlay(Capsule().strokeBorder(Color.white.opacity(0.14), lineWidth: 0.5))
+            .frame(height: Self.toastHeight)
+            // 透けない地にして、何の上に重なっても読めるようにする
+            .background(Capsule().fill(Night.card))
+            .overlay(Capsule().strokeBorder(Color.white.opacity(0.16), lineWidth: 0.5))
+            .shadow(color: .black.opacity(0.35), radius: 12, y: 4)
             .padding(.horizontal, 24)
-            .padding(.top, 10)
-            .transition(.move(edge: .top).combined(with: .opacity))
+            .transition(.move(edge: .bottom).combined(with: .opacity))
             .id(toast.id)
         }
     }
