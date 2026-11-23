@@ -215,6 +215,9 @@ struct ListeningTestView: View {
                         )
                         .rotationEffect(.degrees(-90))
                         .shadow(color: Night.cyan.opacity(0.6), radius: 10)
+                        // 輪は時計だけで動かす。次の問題へ移るときの画面の切り替えに
+                        // 巻き込まれると、満ちかけの輪が逆回しに戻る様子が見えてしまう。
+                        .transaction { $0.animation = nil }
                     if phase == .listening {
                         SoundBars(time: context.date.timeIntervalSinceReferenceDate)
                     } else {

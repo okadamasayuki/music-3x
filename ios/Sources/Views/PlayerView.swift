@@ -32,6 +32,8 @@ struct PlayerView: View {
     @State private var dockDrag: CGFloat = 0
     /// いまのなぞりが縦向きか。横向きなら再生バーの操作なので盤は動かさない。
     @State private var dockDragIsVertical: Bool?
+    /// 開いたときの盤の高さ。なぞりに合わせて字幕の領域を広げ縮めするのに使う。
+    @State private var panelHeight: CGFloat = 0
 
     /// この画面の音源が、いま再生機に載っているか。
     private var isLive: Bool { player.currentTrackID == track.id }
@@ -81,6 +83,9 @@ struct PlayerView: View {
         .background(NightBackdrop().ignoresSafeArea())
         .foregroundStyle(.white)
         .environment(\.colorScheme, .dark)
+        // 盤を畳んでいる間は、下端から上へのなぞりをまず盤を開く操作として受ける。
+        // そのままだとホームバーの操作に取られてホーム画面へ戻ってしまう。
+        .defersSystemGestures(on: dockCollapsed ? .bottom : [])
         .onAppear(perform: loadIfNeeded)
         .fullScreenCover(isPresented: $showListeningTest) {
             ListeningTestView(track: liveTrack, onClose: { showListeningTest = false })
@@ -164,13 +169,23 @@ struct PlayerView: View {
             }
 
             controlPanel
+                .fixedSize(horizontal: false, vertical: true)
+                .background(GeometryReader { geo in
+                    Color.clear.preference(key: PanelHeightKey.self, value: geo.size.height)
+                })
                 .padding(.horizontal, 12)
-                // 畳んだときは盤を大きさそのままで画面の下へ沈め、上端だけを覗かせる。
-                // 置き場所の高さだけを詰めるので、中身は縮まずに下へはみ出して見える。
-                .frame(height: dockCollapsed ? Self.dockPeek : nil, alignment: .top)
+                // 畳むときは盤を大きさそのままで画面の下へ沈め、上端だけを覗かせる。
+                // 置き場所の高さを詰めると中身は縮まずに下へはみ出して見え、同時に
+                // 字幕の領域が広がる。なぞっている途中もこの高さを指に合わせて変えるので、
+                // 下げるにつれて単語が下からぞろぞろ現れる。
+                .frame(height: dockLayoutHeight, alignment: .top)
+                .offset(y: dockOverPull)
+        }
+        .onPreferenceChange(PanelHeightKey.self) { height in
+            if height > 0 { panelHeight = height }
         }
         // 開いているときは少し下へ寄せる(ホームバーの手前までは使ってよい)。
-        // 畳んだときは下の余白ごと使って盤の上端を覗かせる。
+        // 畳んだときは、覗かせる部分がホームバーの操作域に重ならないよう安全域の上に置く。
         .padding(.bottom, dockCollapsed ? 0 : -14)
         // 盤の後ろで字幕がふっと消えるようにする。盤のまわりの隙間に文字が
         // 透けて見えると落ち着かないため。すりガラスは使わない(OpaqueBar 参照)。
@@ -191,8 +206,28 @@ struct PlayerView: View {
     /// 再生ボタンの両脇の札の幅。左右をそろえて再生ボタンを真ん中に見せる。
     private static let sideChipWidth: CGFloat = 104
 
-    /// 畳んだ盤が画面の下から覗く高さ(ホームバーの分は別に見える)
-    private static let dockPeek: CGFloat = 12
+    /// 畳んだ盤が安全域の上へ覗く高さ。つまみを押さえられる分だけ出す
+    /// (その下にもホームバーの分だけ盤が見える)。
+    private static let dockPeek: CGFloat = 30
+
+    /// 盤の置き場所の高さ。nil なら盤そのものの高さ。
+    private var dockLayoutHeight: CGFloat? {
+        let full = panelHeight
+        if dockCollapsed {
+            guard full > 0 else { return Self.dockPeek }
+            // 上へなぞった分だけ、隠れていた部分を出していく
+            return min(full, Self.dockPeek + max(0, -dockDrag))
+        }
+        guard full > 0, dockDrag > 0 else { return nil }
+        // 下へなぞった分だけ沈める。開いているときは 14 下げてあるので、その分を足して止める
+        return max(Self.dockPeek + 14, full - dockDrag)
+    }
+
+    /// 行き止まりの向きへ引いたときの、重い手ごたえ
+    private var dockOverPull: CGFloat {
+        if dockCollapsed { return dockDrag > 0 ? dockDrag / 4 : 0 }
+        return dockDrag < 0 ? dockDrag / 4 : 0
+    }
 
     /// 操作盤。上端のつまみのあたりを下へなぞると畳め、上へなぞるか押すと開く。
     private var controlPanel: some View {
@@ -215,8 +250,6 @@ struct PlayerView: View {
         }
         .background(DockCard())
         .contentShape(Rectangle())
-        // 指について上下し、離した所で畳むか開くかを決める
-        .offset(y: dockOffset)
         .onTapGesture { if dockCollapsed { setDock(collapsed: false) } }
         // 中の再生バーと取り合わないよう、同時に受けて縦の動きだけを拾う
         // (再生バーは横の動きだけを拾う)
@@ -244,15 +277,6 @@ struct PlayerView: View {
         .accessibilityAction(named: dockCollapsed ? "操作盤を開く" : "操作盤を畳む") {
             setDock(collapsed: !dockCollapsed)
         }
-    }
-
-    /// なぞっている間の盤のずれ。開いているときは下へ、畳んでいるときは上へだけ素直に動き、
-    /// 逆向きには重く動く。
-    private var dockOffset: CGFloat {
-        if dockCollapsed {
-            return dockDrag < 0 ? dockDrag : dockDrag / 4
-        }
-        return dockDrag > 0 ? dockDrag : dockDrag / 4
     }
 
     private func setDock(collapsed: Bool) {
@@ -743,6 +767,14 @@ private struct DockGrabber: View {
         Capsule()
             .fill(Color.white.opacity(0.25))
             .frame(width: 36, height: 5)
+    }
+}
+
+/// 開いた操作盤の高さを外へ伝える
+private struct PanelHeightKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
     }
 }
 
