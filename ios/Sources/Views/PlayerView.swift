@@ -22,6 +22,8 @@ struct PlayerView: View {
     /// 音を止めずに中身だけ見られるよう、再生機とは別に読み込む。
     @State private var previewCues: [SubtitleCue] = []
     @State private var previewGroups: [SubtitleGroup] = []
+    /// 聞き取りテストを開いているか
+    @State private var showListeningTest = false
 
     /// この画面の音源が、いま再生機に載っているか。
     private var isLive: Bool { player.currentTrackID == track.id }
@@ -90,6 +92,13 @@ struct PlayerView: View {
         // 横から入ってくる間に後ろの画面が透けないよう、自前の下地を持つ
         .background(Color(.systemBackground).ignoresSafeArea())
         .onAppear(perform: loadIfNeeded)
+        .fullScreenCover(isPresented: $showListeningTest) {
+            ListeningTestView(track: liveTrack, onClose: { showListeningTest = false })
+        }
+        // 検証用の合図でテストを開ける(TestSignals 参照)
+        .onReceive(NotificationCenter.default.publisher(for: .music3xListeningTest)) { note in
+            if note.userInfo?["action"] as? String == "open" { showListeningTest = true }
+        }
     }
 
     // MARK: - 別の音源が鳴っている間の下読み
@@ -220,11 +229,37 @@ struct PlayerView: View {
         ZStack {
             transportButtons
             HStack {
-                TranslationToggle()
+                // 左の列は「訳」と「テスト」を縦に積む。右の速度の列と背丈をそろえる
+                VStack(spacing: 8) {
+                    TranslationToggle()
+                    listeningTestButton
+                }
                 Spacer()
                 speedStepper
             }
         }
+    }
+
+    /// 聞き取りテストを開くボタン。英語だけを聞いて、訳が浮かぶかを確かめる。
+    /// 問題は字幕から作るので、字幕のない音源では押せない。
+    private var listeningTestButton: some View {
+        Button {
+            showListeningTest = true
+        } label: {
+            Text("テスト")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.tint)
+                .frame(width: 48, height: 28)
+                .background(
+                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                        .fill(Color.accentColor.opacity(0.12))
+                )
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(library.subtitleURL(for: liveTrack) == nil)
+        .accessibilityLabel("聞き取りテスト")
+        .accessibilityIdentifier("listeningTestOpen")
     }
 
     /// 再生速度。一覧から選ばせる形だと、行が狭いうえ真下に再生ボタンがあり、

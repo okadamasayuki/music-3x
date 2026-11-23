@@ -143,6 +143,12 @@ struct RootView: View {
                           String(player.hasPreviousGroup), String(player.hasNextGroup),
                           player.currentTime)
                 default:
+                    if name.hasPrefix("music3x.test.") {
+                        NotificationCenter.default.post(
+                            name: .music3xListeningTest, object: nil,
+                            userInfo: ["action": String(name.split(separator: ".").last ?? "")])
+                        return
+                    }
                     if name.hasPrefix("music3x.player.jump."),
                        let n = Int(name.split(separator: ".").last ?? "") {
                         player.jumpToGroup(n)

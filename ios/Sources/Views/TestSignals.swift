@@ -19,6 +19,7 @@ enum TestSignals {
             + (0..<10).map { "music3x.recall.reveal.\($0)" }
             + (0..<20).map { "music3x.player.jump.\($0)" }
             + (0..<20).map { "music3x.player.learn.\($0)" }
+            + ["open", "reveal", "know", "notyet", "undo", "close", "state"].map { "music3x.test.\($0)" }
         let center = CFNotificationCenterGetDarwinNotifyCenter()
         let callback: CFNotificationCallback = { _, _, name, _, _ in
             guard let raw = name?.rawValue else { return }
