@@ -28,8 +28,10 @@ struct PlayerView: View {
     @State private var showListeningTest = false
     /// 操作盤を下へ畳んでいるか。字幕を広く読みたいとき用。次に開いたときも保つ。
     @AppStorage("playerDockCollapsed") private var dockCollapsed = false
-    /// 操作盤をなぞって下げている量
+    /// 操作盤をなぞって動かしている量
     @State private var dockDrag: CGFloat = 0
+    /// いまのなぞりが縦向きか。横向きなら再生バーの操作なので盤は動かさない。
+    @State private var dockDragIsVertical: Bool?
 
     /// この画面の音源が、いま再生機に載っているか。
     private var isLive: Bool { player.currentTrackID == track.id }
@@ -161,19 +163,15 @@ struct PlayerView: View {
                 )
             }
 
-            Group {
-                if dockCollapsed {
-                    collapsedPanel
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
-                } else {
-                    controlPanel
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
-                }
-            }
-            .padding(.horizontal, 12)
+            controlPanel
+                .padding(.horizontal, 12)
+                // 畳んだときは盤を大きさそのままで画面の下へ沈め、上端だけを覗かせる。
+                // 置き場所の高さだけを詰めるので、中身は縮まずに下へはみ出して見える。
+                .frame(height: dockCollapsed ? Self.dockPeek : nil, alignment: .top)
         }
-        // 盤を少し下へ寄せる。ホームバーの手前までは使ってよい。
-        .padding(.bottom, dockCollapsed ? -6 : -14)
+        // 開いているときは少し下へ寄せる(ホームバーの手前までは使ってよい)。
+        // 畳んだときは下の余白ごと使って盤の上端を覗かせる。
+        .padding(.bottom, dockCollapsed ? 0 : -14)
         // 盤の後ろで字幕がふっと消えるようにする。盤のまわりの隙間に文字が
         // 透けて見えると落ち着かないため。すりガラスは使わない(OpaqueBar 参照)。
         .background(alignment: .bottom) {
@@ -190,7 +188,13 @@ struct PlayerView: View {
         }
     }
 
-    /// 開いた操作盤。上端のつまみを下へなぞると畳める。
+    /// 再生ボタンの両脇の札の幅。左右をそろえて再生ボタンを真ん中に見せる。
+    private static let sideChipWidth: CGFloat = 104
+
+    /// 畳んだ盤が画面の下から覗く高さ(ホームバーの分は別に見える)
+    private static let dockPeek: CGFloat = 12
+
+    /// 操作盤。上端のつまみのあたりを下へなぞると畳め、上へなぞるか押すと開く。
     private var controlPanel: some View {
         VStack(spacing: 0) {
             DockGrabber()
@@ -201,71 +205,58 @@ struct PlayerView: View {
                     voiceStrip.padding(.bottom, 8)
                 }
                 seekSection
-                transportButtons
-                    .padding(.top, 4)
-                utilityRow
-                    .padding(.top, 8)
+                mainRow
+                    .padding(.top, 6)
+                adjustRow
+                    .padding(.top, 10)
             }
             .padding(.horizontal, 18)
             .padding(.bottom, 14)
         }
         .background(DockCard())
-        // 下へなぞると指について下がり、離した所で畳むか戻すかを決める
-        .offset(y: dockDrag > 0 ? dockDrag : dockDrag / 4)
-        .gesture(
-            DragGesture(minimumDistance: 8)
-                .onChanged { value in dockDrag = value.translation.height }
+        .contentShape(Rectangle())
+        // 指について上下し、離した所で畳むか開くかを決める
+        .offset(y: dockOffset)
+        .onTapGesture { if dockCollapsed { setDock(collapsed: false) } }
+        // 中の再生バーと取り合わないよう、同時に受けて縦の動きだけを拾う
+        // (再生バーは横の動きだけを拾う)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 10)
+                .onChanged { value in
+                    if dockDragIsVertical == nil {
+                        dockDragIsVertical = abs(value.translation.height) > abs(value.translation.width)
+                    }
+                    guard dockDragIsVertical == true else { return }
+                    dockDrag = value.translation.height
+                }
                 .onEnded { value in
-                    let collapse = value.translation.height > 60 || value.predictedEndTranslation.height > 160
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
-                        if collapse { dockCollapsed = true }
-                        dockDrag = 0
+                    defer { dockDragIsVertical = nil }
+                    guard dockDragIsVertical == true else { return }
+                    let down = value.translation.height
+                    let flung = value.predictedEndTranslation.height
+                    if dockCollapsed {
+                        setDock(collapsed: !(down < -30 || flung < -100))
+                    } else {
+                        setDock(collapsed: down > 50 || flung > 150)
                     }
                 }
         )
-        .accessibilityAction(named: "操作盤を畳む") { setDock(collapsed: true) }
+        .accessibilityAction(named: dockCollapsed ? "操作盤を開く" : "操作盤を畳む") {
+            setDock(collapsed: !dockCollapsed)
+        }
     }
 
-    /// 畳んだ操作盤。つまみと再生位置の細い線だけを見せる。押すか上へなぞると開く。
-    private var collapsedPanel: some View {
-        VStack(spacing: 8) {
-            DockGrabber()
-            GeometryReader { geo in
-                let fraction = player.effectiveDuration > 0
-                    ? min(max(displayedTime / player.effectiveDuration, 0), 1) : 0
-                ZStack(alignment: .leading) {
-                    Capsule().fill(Color.white.opacity(0.12))
-                    Capsule()
-                        .fill(LinearGradient(colors: [Night.cyan, Night.blue], startPoint: .leading, endPoint: .trailing))
-                        .frame(width: max(geo.size.width * fraction, 3))
-                }
-            }
-            .frame(height: 3)
+    /// なぞっている間の盤のずれ。開いているときは下へ、畳んでいるときは上へだけ素直に動き、
+    /// 逆向きには重く動く。
+    private var dockOffset: CGFloat {
+        if dockCollapsed {
+            return dockDrag < 0 ? dockDrag : dockDrag / 4
         }
-        .padding(.top, 8)
-        .padding(.bottom, 12)
-        .padding(.horizontal, 24)
-        .frame(maxWidth: .infinity)
-        .background(DockCard())
-        .contentShape(Rectangle())
-        .onTapGesture { setDock(collapsed: false) }
-        .gesture(
-            DragGesture(minimumDistance: 8)
-                .onEnded { value in
-                    if value.translation.height < -20 || value.predictedEndTranslation.height < -60 {
-                        setDock(collapsed: false)
-                    }
-                }
-        )
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("操作盤を開く")
-        .accessibilityAddTraits(.isButton)
-        .accessibilityAction { setDock(collapsed: false) }
-        .accessibilityIdentifier("dockExpand")
+        return dockDrag > 0 ? dockDrag : dockDrag / 4
     }
 
     private func setDock(collapsed: Bool) {
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+        withAnimation(.spring(response: 0.38, dampingFraction: 0.86)) {
             dockCollapsed = collapsed
             dockDrag = 0
         }
@@ -392,15 +383,67 @@ struct PlayerView: View {
 
     // MARK: - 再生コントロール
 
-    /// 訳・テスト・速度を同じ形の札で一列に並べる。
-    /// 再生ボタンの両脇へ縦に積むと、寄せ集めに見えるうえ押し分けにくかった。
-    private var utilityRow: some View {
-        HStack(spacing: 8) {
-            TranslationToggle()
-            listeningTestButton
+    /// 再生ボタンを真ん中に置き、訳とテストを同じ幅の札で両脇に添える。
+    /// 前後の項目へ飛ぶボタンは使わないので置かない(一覧で二度押しすれば飛べる)。
+    private var mainRow: some View {
+        ZStack {
+            HStack {
+                TranslationToggle(width: Self.sideChipWidth)
+                Spacer()
+                listeningTestButton
+            }
+            playButton
+        }
+    }
+
+    /// 文字の大きさと再生速度。どちらも一段ずつ動かす同じ形の札にそろえる。
+    private var adjustRow: some View {
+        HStack {
+            textSizeStepper
             Spacer(minLength: 8)
             speedStepper
         }
+    }
+
+    /// 字幕の文字の大きさ。設定画面のつまみと同じ値を動かす。
+    private var textSizeStepper: some View {
+        let step = settings.textSizeStep
+        let last = AppSettings.textSizes.count - 1
+        return HStack(spacing: 0) {
+            Button {
+                settings.textSizeStep = max(0, step - 1)
+            } label: {
+                Image(systemName: "minus")
+                    .font(.system(size: 13, weight: .bold))
+                    .frame(width: 36, height: 34)
+                    .contentShape(Rectangle())
+            }
+            .disabled(step <= 0)
+            .opacity(step <= 0 ? 0.3 : 1)
+            .accessibilityIdentifier("textSmaller")
+            .accessibilityLabel("文字を小さく")
+
+            Image(systemName: "textformat.size")
+                .font(.system(size: 15, weight: .semibold))
+                .frame(minWidth: 44)
+                .accessibilityLabel("文字の大きさ \(settings.textSizeLabel)")
+
+            Button {
+                settings.textSizeStep = min(last, step + 1)
+            } label: {
+                Image(systemName: "plus")
+                    .font(.system(size: 13, weight: .bold))
+                    .frame(width: 36, height: 34)
+                    .contentShape(Rectangle())
+            }
+            .disabled(step >= last)
+            .opacity(step >= last ? 0.3 : 1)
+            .accessibilityIdentifier("textLarger")
+            .accessibilityLabel("文字を大きく")
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(.white)
+        .background(Capsule().fill(Color.white.opacity(0.09)))
     }
 
     /// 聞き取りテストを開くボタン。英語だけを聞いて、訳が浮かぶかを確かめる。
@@ -411,7 +454,7 @@ struct PlayerView: View {
             showListeningTest = true
         } label: {
             Label("テスト", systemImage: "ear")
-                .chipLabel(active: false)
+                .chipLabel(active: false, width: Self.sideChipWidth)
         }
         .buttonStyle(.plain)
         .disabled(!enabled)
@@ -480,61 +523,28 @@ struct PlayerView: View {
         apply(speed: AppSettings.speedChoices[target])
     }
 
-    private var transportButtons: some View {
-        // 秒数で送るより教材の切れ目で動くほうが聞き直しやすいので、
-        // 送り戻しは前後の塊への移動にしてある。
-        let canPrev = isLive && player.hasPreviousGroup
-        let canNext = isLive && player.hasNextGroup
+    private var playButton: some View {
         let showsPause = isLive && player.isPlaying
-        return HStack(spacing: 40) {
-            Button {
-                player.goToPreviousGroup()
-            } label: {
-                Image(systemName: "backward.end.fill")
-                    .font(.system(size: 24, weight: .semibold))
-                    .frame(width: 52, height: 52)
-                    .contentShape(Rectangle())
+        return Button {
+            if isLive { player.togglePlayPause() } else { switchToThisTrack() }
+        } label: {
+            ZStack {
+                Circle()
+                    .fill(Night.glow)
+                    .shadow(color: Night.blue.opacity(0.55), radius: 16, x: 0, y: 6)
+                Image(systemName: showsPause ? "pause.fill" : "play.fill")
+                    .font(.system(size: 26, weight: .bold))
+                    .foregroundStyle(.white)
+                    // 三角は見た目の重心が左に寄るので、少しだけ右へずらす
+                    .offset(x: showsPause ? 0 : 2)
             }
-            .disabled(!canPrev)
-            .opacity(canPrev ? 1 : 0.25)
-            .accessibilityIdentifier("previousGroup")
-            .accessibilityLabel("前の塊へ")
-
-            Button {
-                if isLive { player.togglePlayPause() } else { switchToThisTrack() }
-            } label: {
-                ZStack {
-                    Circle()
-                        .fill(Night.glow)
-                        .shadow(color: Night.blue.opacity(0.55), radius: 16, x: 0, y: 6)
-                    Image(systemName: showsPause ? "pause.fill" : "play.fill")
-                        .font(.system(size: 28, weight: .bold))
-                        .foregroundStyle(.white)
-                        // 三角は見た目の重心が左に寄るので、少しだけ右へずらす
-                        .offset(x: showsPause ? 0 : 2)
-                }
-                .frame(width: 72, height: 72)
-                .contentShape(Circle())
-            }
-            .disabled(isLive && !player.isReady)
-            .accessibilityIdentifier(isLive ? "transport" : "switchToTrack")
-            .accessibilityLabel(showsPause ? "一時停止" : "再生")
-
-            Button {
-                player.goToNextGroup()
-            } label: {
-                Image(systemName: "forward.end.fill")
-                    .font(.system(size: 24, weight: .semibold))
-                    .frame(width: 52, height: 52)
-                    .contentShape(Rectangle())
-            }
-            .disabled(!canNext)
-            .opacity(canNext ? 1 : 0.25)
-            .accessibilityIdentifier("nextGroup")
-            .accessibilityLabel("次の塊へ")
+            .frame(width: 66, height: 66)
+            .contentShape(Circle())
         }
         .buttonStyle(.plain)
-        .foregroundStyle(.white)
+        .disabled(isLive && !player.isReady)
+        .accessibilityIdentifier(isLive ? "transport" : "switchToTrack")
+        .accessibilityLabel(showsPause ? "一時停止" : "再生")
     }
 
     // MARK: - 処理
@@ -606,6 +616,8 @@ private struct Scrubber: View {
     var onEnd: (Double) -> Void
 
     @State private var isDragging = false
+    /// いまのなぞりが横向きか(最初の動きで決める)
+    @State private var isHorizontal: Bool?
 
     var body: some View {
         GeometryReader { geo in
@@ -622,10 +634,16 @@ private struct Scrubber: View {
             .frame(maxHeight: .infinity, alignment: .bottom)
             .padding(.bottom, 3)
             .contentShape(Rectangle())
+            // 横へ動かしたときだけ再生位置を動かす。触れただけや縦のなぞり
+            // (操作盤を畳む動き)では動かさない。
             .gesture(
-                DragGesture(minimumDistance: 0)
+                DragGesture(minimumDistance: 6)
                     .onChanged { drag in
                         guard isEnabled else { return }
+                        if isHorizontal == nil {
+                            isHorizontal = abs(drag.translation.width) > abs(drag.translation.height)
+                        }
+                        guard isHorizontal == true else { return }
                         if !isDragging {
                             isDragging = true
                             onBegin()
@@ -633,6 +651,7 @@ private struct Scrubber: View {
                         onChange(position(drag.location.x, width: width))
                     }
                     .onEnded { drag in
+                        defer { isHorizontal = nil }
                         guard isEnabled, isDragging else { return }
                         isDragging = false
                         onEnd(position(drag.location.x, width: width))
@@ -689,12 +708,12 @@ private struct LearnedRing: View {
 
 extension View {
     /// 操作盤の札の見た目。訳・テスト・速度で形をそろえる。
-    func chipLabel(active: Bool) -> some View {
+    func chipLabel(active: Bool, width: CGFloat? = nil) -> some View {
         self
             .font(.footnote.weight(.semibold))
             .labelStyle(.titleAndIcon)
             .padding(.horizontal, 14)
-            .frame(height: 34)
+            .frame(width: width, height: 34)
             .foregroundStyle(Color.white)
             .background {
                 if active {

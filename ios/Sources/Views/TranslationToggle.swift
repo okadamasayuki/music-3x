@@ -5,13 +5,15 @@ import SwiftUI
 /// 消してある状態は斜線で分かるようにする。
 struct TranslationToggle: View {
     @EnvironmentObject private var settings: AppSettings
+    /// 札の幅。並べる相手とそろえたいときに指定する。
+    var width: CGFloat? = nil
 
     var body: some View {
         Button {
             settings.showTranslation.toggle()
         } label: {
             Label("訳", systemImage: settings.showTranslation ? "captions.bubble.fill" : "captions.bubble")
-                .chipLabel(active: settings.showTranslation)
+                .chipLabel(active: settings.showTranslation, width: width)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(settings.showTranslation ? "日本語訳を隠す" : "日本語訳を表示")
