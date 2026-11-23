@@ -38,8 +38,17 @@ struct ListeningTestView: View {
     /// いま queue の何番目を出しているか
     @State private var position = 0
     @State private var phase: Phase = .loading
-    /// 答えが出るまでの残りを示す輪の進み(0〜1)
-    @State private var ringProgress: CGFloat = 0
+    /// 答えを待ち始めた時刻。輪の満ち方と残り秒数はここから計る。
+    @State private var waitStart = Date()
+    /// いまの問題を出した時刻。直後の「覚えた」は前の問題への二度押しとみなして捨てる。
+    @State private var questionStart = Date()
+    /// 答えを見ずに「覚えた」を押したとき、何に印を付けたかを一瞬だけ示す
+    @State private var toast: Toast?
+
+    private struct Toast: Equatable {
+        let id = UUID()
+        let text: String
+    }
     /// 問題を切り替えるたびに増やす。古い問題の待ち時間や鳴り終わりを無視するため。
     @State private var token = 0
     /// この回で覚えた印を付けた数と、「まだ」にした項目
@@ -60,17 +69,23 @@ struct ListeningTestView: View {
     var body: some View {
         VStack(spacing: 0) {
             header
-            Divider()
+            progressBar
+                .padding(.horizontal, 20)
+                .padding(.bottom, 6)
             content
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .contentShape(Rectangle())
                 // 答えを待っている間は、画面のどこを押しても答えを出せる
                 .onTapGesture { if phase == .listening || phase == .waiting { reveal() } }
+                .overlay(alignment: .top) { toastView }
             if phase != .finished && phase != .empty && phase != .loading {
                 bottomButtons
             }
         }
-        .background(Color(.systemBackground).ignoresSafeArea())
+        .foregroundStyle(.white)
+        .background(TestBackdrop().ignoresSafeArea())
+        // テストの間だけ暗い画面にする。時計や電池の表示も白にそろう。
+        .preferredColorScheme(.dark)
         .onAppear(perform: start)
         .onDisappear {
             token += 1
@@ -89,28 +104,29 @@ struct ListeningTestView: View {
                 onClose()
             } label: {
                 Image(systemName: "xmark")
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(.primary)
+                    .font(.system(size: 15, weight: .bold))
                     .frame(width: 38, height: 38)
-                    .background(Circle().fill(Color(.systemGray6)))
+                    .background(Circle().fill(Color.white.opacity(0.10)))
             }
+            .buttonStyle(.plain)
             .accessibilityLabel("テストを終わる")
             .accessibilityIdentifier("listeningTestClose")
 
-            VStack(alignment: .leading, spacing: 1) {
-                Text("聞き取りテスト")
-                    .font(.headline)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("LISTENING TEST")
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .tracking(2)
+                    .foregroundStyle(TestPalette.cyan)
                 Text(track.displayName)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .font(.system(.subheadline, design: .rounded).weight(.semibold))
                     .lineLimit(1)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
             if !queue.isEmpty, phase != .finished {
                 Text("\(min(position + 1, queue.count)) / \(queue.count)")
-                    .font(.subheadline.monospacedDigit())
-                    .foregroundStyle(.secondary)
+                    .font(.system(.subheadline, design: .rounded).monospacedDigit().weight(.medium))
+                    .foregroundStyle(.white.opacity(0.6))
             }
 
             Menu {
@@ -123,15 +139,34 @@ struct ListeningTestView: View {
                 Button("最初からやり直す", action: restart)
             } label: {
                 Image(systemName: "slider.horizontal.3")
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(.primary)
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(.white)
                     .frame(width: 38, height: 38)
-                    .background(Circle().fill(Color(.systemGray6)))
+                    .background(Circle().fill(Color.white.opacity(0.10)))
             }
             .accessibilityLabel("テストの設定")
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 8)
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+        .padding(.bottom, 12)
+    }
+
+    /// この回のうち、どこまで進んだかの細い帯
+    private var progressBar: some View {
+        GeometryReader { geo in
+            let total = max(queue.count, 1)
+            let done = phase == .finished ? total : min(position, total)
+            ZStack(alignment: .leading) {
+                Capsule().fill(Color.white.opacity(0.08))
+                Capsule()
+                    .fill(LinearGradient(colors: [TestPalette.cyan, TestPalette.blue],
+                                         startPoint: .leading, endPoint: .trailing))
+                    .frame(width: max(geo.size.width * CGFloat(done) / CGFloat(total), done > 0 ? 4 : 0))
+                    .animation(.easeOut(duration: 0.3), value: done)
+            }
+        }
+        .frame(height: 4)
+        .opacity(queue.isEmpty ? 0 : 1)
     }
 
     // MARK: - 中身
@@ -140,15 +175,16 @@ struct ListeningTestView: View {
     private var content: some View {
         switch phase {
         case .loading:
-            ProgressView()
+            ProgressView().tint(.white)
         case .empty:
-            message(icon: "checkmark.circle.fill", iconColor: .green,
+            message(icon: "checkmark.seal.fill", iconColor: TestPalette.green,
                     title: "出せる問題がありません",
                     detail: "この音源は、ぜんぶ覚えた印が付いています。")
         case .listening, .waiting:
             listeningView
         case .answer:
             answerView
+                .transition(.opacity.combined(with: .scale(scale: 0.97)))
         case .finished:
             finishedView
         }
@@ -156,51 +192,82 @@ struct ListeningTestView: View {
 
     /// 答えを伏せている間の画面。文字は出さず、聞いていることと残り時間だけを示す。
     private var listeningView: some View {
-        VStack(spacing: 22) {
-            ZStack {
-                Circle()
-                    .stroke(Color.secondary.opacity(0.15), lineWidth: 6)
-                Circle()
-                    .trim(from: 0, to: phase == .waiting ? ringProgress : 0)
-                    .stroke(Color.accentColor, style: StrokeStyle(lineWidth: 6, lineCap: .round))
-                    .rotationEffect(.degrees(-90))
-                Image(systemName: phase == .listening ? "ear.fill" : "ear")
-                    .font(.system(size: 54))
-                    .foregroundStyle(.tint)
+        VStack(spacing: 26) {
+            TimelineView(.animation) { context in
+                let elapsed = context.date.timeIntervalSince(waitStart)
+                let progress = phase == .waiting && delay > 0 ? min(max(elapsed / delay, 0), 1) : 0
+                let remaining = max(0, Int((delay - elapsed).rounded(.up)))
+                ZStack {
+                    Circle()
+                        .stroke(Color.white.opacity(0.07), lineWidth: 10)
+                    Circle()
+                        .trim(from: 0, to: progress)
+                        .stroke(
+                            AngularGradient(colors: [TestPalette.cyan, TestPalette.blue, TestPalette.violet, TestPalette.cyan],
+                                            center: .center),
+                            style: StrokeStyle(lineWidth: 10, lineCap: .round)
+                        )
+                        .rotationEffect(.degrees(-90))
+                        .shadow(color: TestPalette.cyan.opacity(0.6), radius: 10)
+                    if phase == .listening {
+                        SoundBars(time: context.date.timeIntervalSinceReferenceDate)
+                    } else {
+                        Text("\(remaining)")
+                            .font(.system(size: 64, weight: .bold, design: .rounded))
+                            .monospacedDigit()
+                            .contentTransition(.numericText(countsDown: true))
+                            .animation(.snappy, value: remaining)
+                    }
+                }
+                .frame(width: 210, height: 210)
             }
-            .frame(width: 150, height: 150)
 
-            Text(phase == .listening ? "聞いています" : "訳を思い浮かべて")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+            VStack(spacing: 6) {
+                Text(phase == .listening ? "LISTENING" : "THINK")
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .tracking(3)
+                    .foregroundStyle(TestPalette.cyan.opacity(0.9))
+                Text(phase == .listening ? "聞いています" : "訳を思い浮かべて")
+                    .font(.system(.title3, design: .rounded).weight(.semibold))
+                Text("画面をタップすると答えが出ます")
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.35))
+                    .padding(.top, 2)
+            }
         }
     }
 
-    /// 答えの画面。英文と訳を出し、もう一度聞けるようにする。
+    /// 答えの画面。英文と訳をカードに出し、もう一度聞けるようにする。
     private var answerView: some View {
         let lines = currentGroup.map { $0.lines(in: cues).map(\.text) } ?? []
         let english = lines.filter { !$0.looksLikeTranslation }
         let japanese = lines.filter { $0.looksLikeTranslation }
 
-        return ScrollView {
+        return GeometryReader { geo in
+        ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 8) {
+                    sectionLabel("ENGLISH")
                     ForEach(Array(english.enumerated()), id: \.offset) { _, line in
                         Text(line)
-                            .font(.title2.weight(.semibold))
+                            .font(.system(.title2, design: .rounded).weight(.bold))
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
-                Divider()
-                VStack(alignment: .leading, spacing: 6) {
+                Rectangle()
+                    .fill(Color.white.opacity(0.12))
+                    .frame(height: 1)
+                VStack(alignment: .leading, spacing: 8) {
+                    sectionLabel("訳")
                     if japanese.isEmpty {
                         Text("(訳はありません)")
                             .font(.title3)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.white.opacity(0.5))
                     } else {
                         ForEach(Array(japanese.enumerated()), id: \.offset) { _, line in
                             Text(line)
-                                .font(.title3)
+                                .font(.title3.weight(.medium))
+                                .foregroundStyle(.white.opacity(0.88))
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
@@ -210,65 +277,129 @@ struct ListeningTestView: View {
                 } label: {
                     Label("もう一度聞く", systemImage: "speaker.wave.2.fill")
                         .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(TestPalette.cyan)
+                        .padding(.horizontal, 14)
+                        .frame(height: 36)
+                        .background(Capsule().fill(Color.white.opacity(0.08)))
                 }
-                .padding(.top, 4)
+                .buttonStyle(.plain)
+                .padding(.top, 2)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(24)
+            .background(GlassCard())
+            .padding(.horizontal, 18)
+            .padding(.vertical, 24)
+            // 短い答えは画面の真ん中に、長い答えは上から流す
+            .frame(minHeight: geo.size.height)
+        }
         }
         .dynamicTypeSize(settings.textSize)
     }
 
-    private var finishedView: some View {
-        VStack(spacing: 18) {
-            Image(systemName: "flag.checkered")
-                .font(.system(size: 46))
-                .foregroundStyle(.tint)
-            Text("おわり")
-                .font(.title2.weight(.semibold))
-            HStack(spacing: 28) {
-                stat("覚えた", knownCount, .green)
-                stat("まだ", notYet.count, .orange)
+    private func sectionLabel(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 11, weight: .bold, design: .rounded))
+            .tracking(2)
+            .foregroundStyle(TestPalette.cyan.opacity(0.85))
+    }
+
+    /// 答えを見ずに「覚えた」を押したとき、何に印を付けたかを示す
+    @ViewBuilder
+    private var toastView: some View {
+        if let toast {
+            HStack(spacing: 8) {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(TestPalette.green)
+                Text("覚えた")
+                    .font(.footnote.weight(.bold))
+                Text(toast.text)
+                    .font(.footnote)
+                    .foregroundStyle(.white.opacity(0.75))
+                    .lineLimit(1)
             }
+            .padding(.horizontal, 16)
+            .frame(height: 38)
+            .background(Capsule().fill(Color.white.opacity(0.12)))
+            .overlay(Capsule().strokeBorder(Color.white.opacity(0.14), lineWidth: 0.5))
+            .padding(.horizontal, 24)
+            .padding(.top, 10)
+            .transition(.move(edge: .top).combined(with: .opacity))
+            .id(toast.id)
+        }
+    }
+
+    private var finishedView: some View {
+        VStack(spacing: 22) {
+            ZStack {
+                Circle()
+                    .fill(RadialGradient(colors: [TestPalette.cyan.opacity(0.35), .clear],
+                                         center: .center, startRadius: 4, endRadius: 80))
+                    .frame(width: 160, height: 160)
+                Image(systemName: "flag.checkered")
+                    .font(.system(size: 46, weight: .semibold))
+                    .foregroundStyle(TestPalette.cyan)
+            }
+            Text("おわり")
+                .font(.system(.title, design: .rounded).weight(.bold))
+            HStack(spacing: 12) {
+                stat("覚えた", knownCount, TestPalette.green)
+                stat("まだ", notYet.count, TestPalette.orange)
+            }
+            .padding(.horizontal, 24)
             if !notYet.isEmpty {
                 Button {
                     retryNotYet()
                 } label: {
                     Label("「まだ」の分をもう一度", systemImage: "arrow.counterclockwise")
-                        .font(.body.weight(.semibold))
-                        .padding(.horizontal, 18).padding(.vertical, 10)
+                        .font(.headline)
+                        .frame(maxWidth: .infinity, minHeight: 54)
+                        .background(
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .fill(LinearGradient(colors: [TestPalette.cyan, TestPalette.blue],
+                                                     startPoint: .topLeading, endPoint: .bottomTrailing))
+                        )
+                        .shadow(color: TestPalette.blue.opacity(0.45), radius: 14, y: 6)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.plain)
+                .padding(.horizontal, 24)
             }
             Button("終わる", action: onClose)
-                .padding(.top, 4)
+                .font(.body.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.7))
         }
-        .padding(32)
+        .padding(.vertical, 32)
     }
 
     private func stat(_ label: String, _ value: Int, _ color: Color) -> some View {
-        VStack(spacing: 2) {
+        VStack(spacing: 4) {
             Text("\(value)")
-                .font(.system(size: 34, weight: .bold))
+                .font(.system(size: 40, weight: .bold, design: .rounded))
                 .monospacedDigit()
                 .foregroundStyle(color)
             Text(label)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.6))
         }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 18)
+        .background(GlassCard(cornerRadius: 22))
     }
 
     private func message(icon: String, iconColor: Color, title: String, detail: String) -> some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 14) {
             Image(systemName: icon)
-                .font(.system(size: 44))
+                .font(.system(size: 48))
                 .foregroundStyle(iconColor)
-            Text(title).font(.headline)
+            Text(title)
+                .font(.system(.headline, design: .rounded))
             Text(detail)
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.white.opacity(0.6))
                 .multilineTextAlignment(.center)
             Button("終わる", action: onClose)
+                .font(.body.weight(.semibold))
+                .foregroundStyle(TestPalette.cyan)
                 .padding(.top, 8)
         }
         .padding(32)
@@ -276,45 +407,64 @@ struct ListeningTestView: View {
 
     // MARK: - 下のボタン
 
-    /// 押し間違いを避けるため、左右の役目を場面ごとにそろえてある。
-    /// 「答えを見る」を二度押ししても、二度目は「まだ」に当たり、印は付かない。
+    /// 右はいつでも「覚えた」、左はいつでも印の付かない操作にそろえてある。
+    /// 分かったと思ったら答えを待たずに右を押せる。左を何度押しても印は付かない
+    /// (答えが出る前は「もう一度聞く」、出た後は「まだ」)。
     private var bottomButtons: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 10) {
             if lastMarked != nil {
                 Button {
                     undoLastMark()
                 } label: {
-                    Text("直前の「覚えた」を取り消す")
-                        .font(.footnote)
+                    Label("直前の「覚えた」を取り消す", systemImage: "arrow.uturn.backward")
+                        .font(.footnote.weight(.medium))
+                        .foregroundStyle(.white.opacity(0.6))
                 }
+                .buttonStyle(.plain)
             }
             HStack(spacing: 12) {
                 if phase == .answer {
-                    bigButton("まだ", systemImage: "arrow.right", color: Color(.systemGray5),
-                              foreground: .primary, id: "listeningTestNotYet", action: markNotYet)
-                    bigButton("覚えた", systemImage: "checkmark", color: .green,
-                              foreground: .white, id: "listeningTestKnow", action: markKnown)
+                    glassButton("まだ", systemImage: "arrow.right", id: "listeningTestNotYet", action: markNotYet)
                 } else {
-                    bigButton("答えを見る", systemImage: "eye", color: Color(.systemGray5),
-                              foreground: .primary, id: "listeningTestReveal", action: reveal)
-                    bigButton("もう一度聞く", systemImage: "speaker.wave.2.fill", color: Color(.systemGray5),
-                              foreground: .accentColor, id: "listeningTestReplay", action: replay)
+                    glassButton("もう一度聞く", systemImage: "speaker.wave.2.fill", id: "listeningTestReplay", action: replay)
                 }
+                Button(action: markKnown) {
+                    Label("覚えた", systemImage: "checkmark")
+                        .font(.headline)
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity, minHeight: 58)
+                        .background(
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .fill(LinearGradient(colors: [TestPalette.green, TestPalette.greenDeep],
+                                                     startPoint: .topLeading, endPoint: .bottomTrailing))
+                        )
+                        .shadow(color: TestPalette.green.opacity(0.4), radius: 14, y: 6)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("listeningTestKnow")
             }
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 18)
         .padding(.top, 8)
         .padding(.bottom, 12)
     }
 
-    private func bigButton(_ title: String, systemImage: String, color: Color, foreground: Color,
-                           id: String, action: @escaping () -> Void) -> some View {
+    private func glassButton(_ title: String, systemImage: String, id: String,
+                             action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Label(title, systemImage: systemImage)
                 .font(.headline)
-                .foregroundStyle(foreground)
-                .frame(maxWidth: .infinity, minHeight: 54)
-                .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(color))
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity, minHeight: 58)
+                .background(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(Color.white.opacity(0.10))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .strokeBorder(Color.white.opacity(0.14), lineWidth: 0.5)
+                )
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -425,8 +575,8 @@ struct ListeningTestView: View {
             return
         }
         follow(group)
-        phase = .listening
-        ringProgress = 0
+        withAnimation(.easeOut(duration: 0.2)) { phase = .listening }
+        questionStart = Date()
         segment.play(from: range.start, to: range.end, rate: settings.defaultSpeed) {
             guard my == token, phase == .listening else { return }
             beginWaiting(my)
@@ -448,12 +598,9 @@ struct ListeningTestView: View {
             reveal()
             return
         }
+        // 輪は一定の速さで満ちていくので、残りが目で分かる(waitStart から計る)
+        waitStart = Date()
         phase = .waiting
-        ringProgress = 0
-        // 輪は一定の速さで満ちていくので、残りが目で分かる
-        DispatchQueue.main.async {
-            withAnimation(.linear(duration: delay)) { ringProgress = 1 }
-        }
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
             guard my == token, phase == .waiting else { return }
             reveal()
@@ -464,7 +611,7 @@ struct ListeningTestView: View {
         guard phase == .listening || phase == .waiting else { return }
         token += 1
         segment.stop()
-        phase = .answer
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) { phase = .answer }
     }
 
     /// 問題をもう一度鳴らす。答えを出したあとなら、答えは出したまま鳴らすだけ。
@@ -477,13 +624,38 @@ struct ListeningTestView: View {
         }
     }
 
+    /// 答えが出た後はもちろん、出る前でも押せる。分かったと思ったらすぐ次へ進めるように。
     private func markKnown() {
-        guard phase == .answer, let group = currentGroup else { return }
+        guard let group = currentGroup else { return }
+        switch phase {
+        case .answer:
+            break
+        case .listening, .waiting:
+            // 出したばかりの問題への「覚えた」は、前の問題で押した二度押しとみなして捨てる。
+            // 聞いてもいない項目に印が付くのを防ぐため。
+            guard Date().timeIntervalSince(questionStart) > 0.5 else { return }
+            token += 1
+            segment.stop()
+            showToast(for: group)
+        default:
+            return
+        }
         setLearned(true, group: group.id)
         knownCount += 1
         lastMarked = group.id
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         advance()
+    }
+
+    /// 答えを見ずに印を付けた項目の英文を、上に一瞬だけ出す
+    private func showToast(for group: SubtitleGroup) {
+        let english = group.lines(in: cues).map(\.text).first { !$0.looksLikeTranslation } ?? ""
+        let item = Toast(text: english)
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) { toast = item }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
+            guard toast == item else { return }
+            withAnimation(.easeOut(duration: 0.25)) { toast = nil }
+        }
     }
 
     private func markNotYet() {
@@ -556,3 +728,70 @@ extension Notification.Name {
     /// 検証用: 聞き取りテストを外から操作する合図。userInfo["action"] に操作名を入れる。
     static let music3xListeningTest = Notification.Name("music3xListeningTest")
 }
+
+// MARK: - 見た目の部品
+
+/// テスト画面の色。暗い紺の地に、青緑の光を差し色にする。
+private enum TestPalette {
+    static let cyan = Color(red: 0.35, green: 0.85, blue: 1.0)
+    static let blue = Color(red: 0.30, green: 0.50, blue: 1.0)
+    static let violet = Color(red: 0.62, green: 0.42, blue: 1.0)
+    static let green = Color(red: 0.25, green: 0.85, blue: 0.55)
+    static let greenDeep = Color(red: 0.10, green: 0.66, blue: 0.45)
+    static let orange = Color(red: 1.0, green: 0.68, blue: 0.30)
+    static let night = Color(red: 0.035, green: 0.05, blue: 0.12)
+    static let indigo = Color(red: 0.09, green: 0.10, blue: 0.26)
+}
+
+/// 暗い地と、輪の後ろにぼんやり灯る光
+private struct TestBackdrop: View {
+    var body: some View {
+        ZStack {
+            LinearGradient(colors: [TestPalette.night, TestPalette.indigo],
+                           startPoint: .top, endPoint: .bottom)
+            RadialGradient(colors: [TestPalette.blue.opacity(0.35), .clear],
+                           center: UnitPoint(x: 0.5, y: 0.42), startRadius: 10, endRadius: 320)
+            RadialGradient(colors: [TestPalette.violet.opacity(0.18), .clear],
+                           center: UnitPoint(x: 0.85, y: 0.05), startRadius: 0, endRadius: 260)
+        }
+    }
+}
+
+/// うっすら透けるカード。暗い地の上に重ねる。
+private struct GlassCard: View {
+    var cornerRadius: CGFloat = 28
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            .fill(Color.white.opacity(0.06))
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .strokeBorder(
+                        LinearGradient(colors: [Color.white.opacity(0.22), Color.white.opacity(0.04)],
+                                       startPoint: .top, endPoint: .bottom),
+                        lineWidth: 1
+                    )
+            )
+    }
+}
+
+/// 聞いている間、輪の中で揺れる音の棒
+private struct SoundBars: View {
+    let time: TimeInterval
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 7) {
+            ForEach(0..<5, id: \.self) { i in
+                let phase = time * 5.2 + Double(i) * 0.9
+                let level = 0.35 + 0.65 * abs(sin(phase) * cos(phase * 0.43 + Double(i)))
+                Capsule()
+                    .fill(LinearGradient(colors: [TestPalette.cyan, TestPalette.blue],
+                                         startPoint: .top, endPoint: .bottom))
+                    .frame(width: 8, height: 18 + 52 * level)
+            }
+        }
+        .frame(height: 74)
+        .shadow(color: TestPalette.cyan.opacity(0.5), radius: 8)
+    }
+}
+
