@@ -42,6 +42,8 @@ struct ListeningTestView: View {
     @State private var waitStart = Date()
     /// いまの問題を出した時刻。直後の「覚えた」は前の問題への二度押しとみなして捨てる。
     @State private var questionStart = Date()
+    /// 答えを出した時刻。直後の「まだ」は「答えを見る」の二度押しとみなして捨てる。
+    @State private var answerShownAt = Date()
     /// 答えを見ずに「覚えた」を押したとき、何に印を付けたかを一瞬だけ示す
     @State private var toast: Toast?
     /// 答えの画面に出している英文と訳。答えを出した時点で控えておく。
@@ -419,7 +421,9 @@ struct ListeningTestView: View {
 
     // MARK: - 下のボタン
 
-    /// 右はいつでも「覚えた」、左はいつでも「まだ」。答えを待たずにどちらも押せる。
+    /// 右はいつでも「覚えた」(答えを待たずに押せる)。左は、答えが出る前は「答えを見る」、
+    /// 出た後は「まだ」。左を二度押ししても、二度目の「まだ」は答えが出た直後なので
+    /// 受け付けない(答えを読む前に次へ進まないように)。
     /// 聞き直したいときは、答えのカードの「もう一度聞く」を使う。
     private var bottomButtons: some View {
         VStack(spacing: 10) {
@@ -434,7 +438,11 @@ struct ListeningTestView: View {
                 .buttonStyle(.plain)
             }
             HStack(spacing: 12) {
-                glassButton("まだ", systemImage: "arrow.right", id: "listeningTestNotYet", action: markNotYet)
+                if phase == .answer {
+                    glassButton("まだ", systemImage: "arrow.right", id: "listeningTestNotYet", action: markNotYet)
+                } else {
+                    glassButton("答えを見る", systemImage: "eye", id: "listeningTestReveal", action: reveal)
+                }
                 Button(action: markKnown) {
                     Label("覚えた", systemImage: "checkmark")
                         .font(.headline)
@@ -621,6 +629,7 @@ struct ListeningTestView: View {
         let lines = currentGroup.map { $0.lines(in: cues).map(\.text) } ?? []
         shownEnglish = lines.filter { !$0.looksLikeTranslation }
         shownJapanese = lines.filter { $0.looksLikeTranslation }
+        answerShownAt = Date()
         withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) { phase = .answer }
     }
 
@@ -674,7 +683,8 @@ struct ListeningTestView: View {
         guard let group = currentGroup else { return }
         switch phase {
         case .answer:
-            break
+            // 答えを出した直後の「まだ」は「答えを見る」の二度押しとみなして捨てる
+            guard Date().timeIntervalSince(answerShownAt) > 0.4 else { return }
         case .listening, .waiting:
             // 出したばかりの問題への「まだ」は、前の問題で押した二度押しとみなして捨てる
             guard Date().timeIntervalSince(questionStart) > 0.5 else { return }
