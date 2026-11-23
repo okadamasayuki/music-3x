@@ -200,6 +200,16 @@ struct PlayerView: View {
                 // 字幕の領域が広がる。なぞっている途中もこの高さを指に合わせて変えるので、
                 // 下げるにつれて単語が下からぞろぞろ現れる。
                 .frame(height: dockLayoutHeight, alignment: .top)
+                // 盤のすぐ上の帯でも上げ下げのなぞりを受ける。少しはみ出して触っても
+                // 字幕のスクロールに取られないようにするため。
+                .overlay(alignment: .top) {
+                    Color.clear
+                        .frame(height: Self.dockGrabBand)
+                        .contentShape(Rectangle())
+                        .alignmentGuide(.top) { $0[.bottom] }
+                        .gesture(dockDragGesture)
+                        .accessibilityHidden(true)
+                }
                 // 「現在位置へ」は盤の上端に乗せ、盤と一緒に動かす。字幕の側に置くと
                 // 盤を上げ下げしたとき一拍遅れて追いかけてくるため。
                 .overlay(alignment: .topTrailing) {
@@ -284,31 +294,41 @@ struct PlayerView: View {
         .onTapGesture { if dockCollapsed { setDock(collapsed: false) } }
         // 中の再生バーと取り合わないよう、同時に受けて縦の動きだけを拾う
         // (再生バーは横の動きだけを拾う)
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 10)
-                .onChanged { value in
-                    if dockDragIsVertical == nil {
-                        dockDragIsVertical = abs(value.translation.height) > abs(value.translation.width)
-                    }
-                    guard dockDragIsVertical == true else { return }
-                    dockDrag = value.translation.height
-                }
-                .onEnded { value in
-                    defer { dockDragIsVertical = nil }
-                    guard dockDragIsVertical == true else { return }
-                    let down = value.translation.height
-                    let flung = value.predictedEndTranslation.height
-                    if dockCollapsed {
-                        setDock(collapsed: !(down < -30 || flung < -100))
-                    } else {
-                        setDock(collapsed: down > 50 || flung > 150)
-                    }
-                }
-        )
+        .simultaneousGesture(dockDragGesture)
         .accessibilityAction(named: dockCollapsed ? "操作盤を開く" : "操作盤を畳む") {
             setDock(collapsed: !dockCollapsed)
         }
     }
+
+    /// 操作盤を上げ下げするなぞり。盤そのものと、盤のすぐ上の帯で受ける。
+    ///
+    /// なぞりに合わせて盤の置き場所の高さを変えるので、盤を基準に測ると
+    /// 「動かす→測り直す」を繰り返して震える。画面全体を基準に測る(BackSwipe と同じ)。
+    private var dockDragGesture: some Gesture {
+        DragGesture(minimumDistance: 10, coordinateSpace: .global)
+            .onChanged { value in
+                if dockDragIsVertical == nil {
+                    dockDragIsVertical = abs(value.translation.height) > abs(value.translation.width)
+                }
+                guard dockDragIsVertical == true else { return }
+                dockDrag = value.translation.height
+            }
+            .onEnded { value in
+                defer { dockDragIsVertical = nil }
+                guard dockDragIsVertical == true else { return }
+                let down = value.translation.height
+                let flung = value.predictedEndTranslation.height
+                if dockCollapsed {
+                    setDock(collapsed: !(down < -30 || flung < -100))
+                } else {
+                    setDock(collapsed: down > 50 || flung > 150)
+                }
+            }
+    }
+
+    /// 盤のすぐ上の、なぞりを盤の上げ下げとして受ける帯の高さ。
+    /// 盤のきわで字幕をスクロールすることはまずないので、こちらを優先する。
+    private static let dockGrabBand: CGFloat = 40
 
     /// 手で字幕を動かして追従が外れたとき、今の項目へ戻すボタン
     private var followButton: some View {

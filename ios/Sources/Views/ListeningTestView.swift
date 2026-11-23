@@ -51,7 +51,9 @@ struct ListeningTestView: View {
     @State private var shownJapanese: [String] = []
 
     private struct Toast: Equatable {
+        enum Kind { case known, undone }
         let id = UUID()
+        let kind: Kind
         let text: String
     }
     /// 問題を切り替えるたびに増やす。古い問題の待ち時間や鳴り終わりを無視するため。
@@ -313,9 +315,9 @@ struct ListeningTestView: View {
     private var toastView: some View {
         if let toast {
             HStack(spacing: 8) {
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundStyle(Night.green)
-                Text("覚えた")
+                Image(systemName: toast.kind == .known ? "checkmark.circle.fill" : "arrow.uturn.backward.circle.fill")
+                    .foregroundStyle(toast.kind == .known ? Night.green : Night.orange)
+                Text(toast.kind == .known ? "覚えた" : "取り消した")
                     .font(.footnote.weight(.bold))
                 Text(toast.text)
                     .font(.footnote)
@@ -650,9 +652,10 @@ struct ListeningTestView: View {
     }
 
     /// 答えを見ずに印を付けた項目の英文を、上に一瞬だけ出す
-    private func showToast(for group: SubtitleGroup) {
+    /// 何に印を付けた(外した)かを、上に一瞬だけ出す
+    private func showToast(for group: SubtitleGroup, kind: Toast.Kind = .known) {
         let english = group.lines(in: cues).map(\.text).first { !$0.looksLikeTranslation } ?? ""
-        let item = Toast(text: english)
+        let item = Toast(kind: kind, text: english)
         withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) { toast = item }
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
             guard toast == item else { return }
@@ -682,6 +685,8 @@ struct ListeningTestView: View {
     private func undoLastMark() {
         guard let group = lastMarked else { return }
         setLearned(false, group: group)
+        // 取り消したことと、どの項目かを示す
+        if groups.indices.contains(group) { showToast(for: groups[group], kind: .undone) }
         knownCount = max(0, knownCount - 1)
         // 取り消した分は「まだ」に回し、最後の「もう一度」で出し直せるようにする
         notYet.append(group)
