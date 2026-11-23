@@ -408,9 +408,8 @@ struct ListeningTestView: View {
 
     // MARK: - 下のボタン
 
-    /// 右はいつでも「覚えた」、左はいつでも印の付かない操作にそろえてある。
-    /// 分かったと思ったら答えを待たずに右を押せる。左を何度押しても印は付かない
-    /// (答えが出る前は「もう一度聞く」、出た後は「まだ」)。
+    /// 右はいつでも「覚えた」、左はいつでも「まだ」。答えを待たずにどちらも押せる。
+    /// 聞き直したいときは、答えのカードの「もう一度聞く」を使う。
     private var bottomButtons: some View {
         VStack(spacing: 10) {
             if lastMarked != nil {
@@ -424,11 +423,7 @@ struct ListeningTestView: View {
                 .buttonStyle(.plain)
             }
             HStack(spacing: 12) {
-                if phase == .answer {
-                    glassButton("まだ", systemImage: "arrow.right", id: "listeningTestNotYet", action: markNotYet)
-                } else {
-                    glassButton("もう一度聞く", systemImage: "speaker.wave.2.fill", id: "listeningTestReplay", action: replay)
-                }
+                glassButton("まだ", systemImage: "arrow.right", id: "listeningTestNotYet", action: markNotYet)
                 Button(action: markKnown) {
                     Label("覚えた", systemImage: "checkmark")
                         .font(.headline)
@@ -662,8 +657,20 @@ struct ListeningTestView: View {
         }
     }
 
+    /// 答えが出た後はもちろん、出る前でも押せる。分からないと思ったらすぐ次へ。
     private func markNotYet() {
-        guard phase == .answer, let group = currentGroup else { return }
+        guard let group = currentGroup else { return }
+        switch phase {
+        case .answer:
+            break
+        case .listening, .waiting:
+            // 出したばかりの問題への「まだ」は、前の問題で押した二度押しとみなして捨てる
+            guard Date().timeIntervalSince(questionStart) > 0.5 else { return }
+            token += 1
+            segment.stop()
+        default:
+            return
+        }
         notYet.append(group.id)
         UIImpactFeedbackGenerator(style: .soft).impactOccurred()
         advance()

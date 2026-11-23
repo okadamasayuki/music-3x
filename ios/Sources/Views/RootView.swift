@@ -53,9 +53,6 @@ struct RootView: View {
 
             ZStack(alignment: .leading) {
                 tabs
-                    // プレイヤーを開いて画面全体が暗くなっても、なぞって戻すときに
-                    // 見える一覧は白地のままにする
-                    .environment(\.colorScheme, .light)
                     // 奥の画面はわずかに左へ寄せておき、戻すにつれて定位置へ返す
                     .offset(x: isOpen ? -width * 0.22 * (1 - progress) : 0)
                     .overlay(
@@ -106,10 +103,9 @@ struct RootView: View {
             .onAppear { screenWidth = width }
             .onChange(of: width) { screenWidth = $0 }
         }
-        // 端末が夜間モードでも一覧は白地で使う。単語の一覧を長く眺める用途では
-        // 黒地より白地のほうが読みやすいという求めによる。プレイヤーを開いている
-        // 間だけは暗い紺の画面なので、時計や電池の表示も白にそろえる。
-        .preferredColorScheme(isPlayerOpen ? .dark : .light)
+        // 英→日(音源の一覧)とプレイヤーは暗い紺の画面なので、時計や電池の表示も
+        // 白にそろえる。ほかのタブは端末が夜間モードでも白地で使う。
+        .preferredColorScheme(isPlayerOpen || selectedTab == .library ? .dark : .light)
         .onAppear {
             // 再生位置の保存はライブラリ側の責務なので、ここで橋渡しする
             player.onPositionChange = { [weak library] trackID, position in
@@ -208,6 +204,7 @@ struct RootView: View {
                 LibraryView(onOpen: { open(.player($0)) })
                     .safeAreaInset(edge: .bottom) { miniPlayer }
             }
+            .environment(\.colorScheme, .dark)
             .tabItem { Label("英→日", systemImage: "character.bubble") }
             .tag(Tab.library)
 
@@ -215,6 +212,7 @@ struct RootView: View {
                 RecallListView(onOpen: { open(.recall($0)) })
                     .safeAreaInset(edge: .bottom) { miniPlayer }
             }
+            .environment(\.colorScheme, .light)
             .tabItem { Label("日→英", systemImage: "character.bubble.ja") }
             .tag(Tab.recall)
 
@@ -222,6 +220,7 @@ struct RootView: View {
                 ImprovementListView()
                     .safeAreaInset(edge: .bottom) { miniPlayer }
             }
+            .environment(\.colorScheme, .light)
             .tabItem { Label("改善", systemImage: "lightbulb") }
             .tag(Tab.improve)
 
@@ -229,6 +228,7 @@ struct RootView: View {
                 SettingsView()
                     .safeAreaInset(edge: .bottom) { miniPlayer }
             }
+            .environment(\.colorScheme, .light)
             .tabItem { Label("設定", systemImage: "gearshape") }
             .tag(Tab.settings)
         }
@@ -379,17 +379,25 @@ struct MiniPlayerBar: View {
     var onOpen: () -> Void
     var onToggle: () -> Void
 
+    /// 暗い紺の画面(一覧・プレイヤー)の上では、同じ紺の札にする
+    @Environment(\.colorScheme) private var colorScheme
+    private var isNight: Bool { colorScheme == .dark }
+
     var body: some View {
         HStack(spacing: 12) {
             // 小さなジャケット風の印。帯ではなく「再生中のもの」だと一目で分かるように
-            Image(systemName: "music.note")
+            Image(systemName: isNight ? "waveform" : "music.note")
                 .font(.body.weight(.semibold))
-                .foregroundStyle(.tint)
+                .foregroundStyle(isNight ? AnyShapeStyle(Color.white) : AnyShapeStyle(.tint))
                 .frame(width: 40, height: 40)
-                .background(
-                    RoundedRectangle(cornerRadius: 9, style: .continuous)
-                        .fill(Color.accentColor.opacity(0.12))
-                )
+                .background {
+                    if isNight {
+                        RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Night.glow)
+                    } else {
+                        RoundedRectangle(cornerRadius: 9, style: .continuous)
+                            .fill(Color.accentColor.opacity(0.12))
+                    }
+                }
 
             VStack(alignment: .leading, spacing: 6) {
                 // 帯が厚くなりすぎないよう 2 行までにする。
@@ -414,7 +422,10 @@ struct MiniPlayerBar: View {
                 GeometryReader { proxy in
                     ZStack(alignment: .leading) {
                         Capsule().fill(Color.secondary.opacity(0.2))
-                        Capsule().fill(Color.accentColor)
+                        Capsule()
+                            .fill(isNight ? AnyShapeStyle(LinearGradient(colors: [Night.cyan, Night.blue],
+                                                                         startPoint: .leading, endPoint: .trailing))
+                                          : AnyShapeStyle(Color.accentColor))
                             .frame(width: proxy.size.width * min(max(progress, 0), 1))
                     }
                 }
@@ -424,7 +435,7 @@ struct MiniPlayerBar: View {
             Button(action: onToggle) {
                 Image(systemName: isPlaying ? "pause.fill" : "play.fill")
                     .font(.title2)
-                    .foregroundStyle(.tint)
+                    .foregroundStyle(isNight ? AnyShapeStyle(Night.cyan) : AnyShapeStyle(.tint))
                     .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
@@ -437,13 +448,17 @@ struct MiniPlayerBar: View {
         .padding(.vertical, 10)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color(.systemBackground))
-                .shadow(color: .black.opacity(0.14), radius: 10, x: 0, y: 3)
+                .fill(isNight ? Night.card : Color(.systemBackground))
+                .shadow(color: .black.opacity(isNight ? 0.35 : 0.14), radius: 10, x: 0, y: 3)
         )
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(Color(.separator), lineWidth: 0.75)
-        )
+        .overlay {
+            if isNight {
+                GlassEdge(cornerRadius: 16)
+            } else {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .strokeBorder(Color(.separator), lineWidth: 0.75)
+            }
+        }
         .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         // タブの帯から少し離して浮かせる。左右は浮いた帯の端とそろえる
         .padding(.horizontal, 20)
