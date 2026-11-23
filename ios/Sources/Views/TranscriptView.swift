@@ -57,9 +57,9 @@ struct TranscriptView: View {
                         Label("現在位置へ", systemImage: "location.fill")
                             .font(.footnote.weight(.semibold))
                             .padding(.horizontal, 14).padding(.vertical, 9)
-                            .background(Capsule().fill(Color.accentColor))
+                            .background(Capsule().fill(Night.glow))
                             .foregroundStyle(.white)
-                            .shadow(color: Color.accentColor.opacity(0.35), radius: 10, x: 0, y: 4)
+                            .shadow(color: Night.blue.opacity(0.5), radius: 12, x: 0, y: 4)
                     }
                     .padding(16)
                 }
@@ -148,14 +148,23 @@ private struct GroupBlock: View {
         }
         .padding(.vertical, 8)
         .padding(.horizontal, 12)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(isPlaying ? Color.accentColor.opacity(0.09) : Color.clear)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .strokeBorder(isPlaying ? Color.accentColor.opacity(0.22) : Color.clear, lineWidth: 1)
-        )
+        .background {
+            if isPlaying {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(Night.cyan.opacity(0.09))
+                    .shadow(color: Night.cyan.opacity(0.18), radius: 14)
+            }
+        }
+        .overlay {
+            if isPlaying {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .strokeBorder(
+                        LinearGradient(colors: [Night.cyan.opacity(0.55), Night.blue.opacity(0.15)],
+                                       startPoint: .topLeading, endPoint: .bottomTrailing),
+                        lineWidth: 1
+                    )
+            }
+        }
         .animation(.easeOut(duration: 0.2), value: isPlaying)
         // 余白も含めて、項目のどこを押しても効くようにする
         .contentShape(Rectangle())
@@ -178,12 +187,13 @@ private struct LearnedMark: View {
     var body: some View {
         ZStack {
             if isLearned {
-                Circle().fill(Color.accentColor)
+                Circle().fill(LinearGradient(colors: [Night.green, Night.greenDeep],
+                                             startPoint: .topLeading, endPoint: .bottomTrailing))
                 Image(systemName: "checkmark")
                     .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(.white)
             } else {
-                Circle().strokeBorder(Color.secondary.opacity(0.35), lineWidth: 1.5)
+                Circle().strokeBorder(Color.white.opacity(0.25), lineWidth: 1.5)
             }
         }
         .frame(width: 22, height: 22)
@@ -212,10 +222,10 @@ private struct CueRow: View {
 
     private var color: Color {
         switch (isCurrent, isTranslation) {
-        case (true, false): return .primary
-        case (true, true): return Color.primary.opacity(0.7)
-        case (false, false): return Color.primary.opacity(0.55)
-        case (false, true): return Color.secondary.opacity(0.75)
+        case (true, false): return .white
+        case (true, true): return Color.white.opacity(0.78)
+        case (false, false): return Color.white.opacity(0.55)
+        case (false, true): return Color.white.opacity(0.36)
         }
     }
 }

@@ -17,9 +17,7 @@ struct Music3xApp: App {
                 .environmentObject(settings)
                 .environmentObject(voice)
                 .environmentObject(improvements)
-                // 端末が夜間モードでも白地で使う。単語の一覧を長く眺める用途では
-                // 黒地より白地のほうが読みやすいという求めによる。
-                .preferredColorScheme(.light)
+                // 色の明暗は RootView が決める(一覧は白地、プレイヤーは暗い紺)
                 .onChange(of: scenePhase) { phase in
                     // 「ファイル」アプリ等で音源が足された直後にも一覧へ反映されるように
                     if phase == .active { library.refresh() }

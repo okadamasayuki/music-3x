@@ -35,6 +35,12 @@ struct RootView: View {
     /// 声で直前に切り替えた項目。言い直しで戻せるように覚えておく。
     @State private var lastVoiceToggle: (group: Int, becameLearned: Bool)?
 
+    /// プレイヤーを前に出しているか。画面全体の明暗の切り替えに使う。
+    private var isPlayerOpen: Bool {
+        if case .player = opened { return true }
+        return false
+    }
+
     private var openedTrack: Track? {
         opened.flatMap { o in library.tracks.first(where: { $0.id == o.trackID }) }
     }
@@ -47,6 +53,9 @@ struct RootView: View {
 
             ZStack(alignment: .leading) {
                 tabs
+                    // プレイヤーを開いて画面全体が暗くなっても、なぞって戻すときに
+                    // 見える一覧は白地のままにする
+                    .environment(\.colorScheme, .light)
                     // 奥の画面はわずかに左へ寄せておき、戻すにつれて定位置へ返す
                     .offset(x: isOpen ? -width * 0.22 * (1 - progress) : 0)
                     .overlay(
@@ -97,6 +106,10 @@ struct RootView: View {
             .onAppear { screenWidth = width }
             .onChange(of: width) { screenWidth = $0 }
         }
+        // 端末が夜間モードでも一覧は白地で使う。単語の一覧を長く眺める用途では
+        // 黒地より白地のほうが読みやすいという求めによる。プレイヤーを開いている
+        // 間だけは暗い紺の画面なので、時計や電池の表示も白にそろえる。
+        .preferredColorScheme(isPlayerOpen ? .dark : .light)
         .onAppear {
             // 再生位置の保存はライブラリ側の責務なので、ここで橋渡しする
             player.onPositionChange = { [weak library] trackID, position in

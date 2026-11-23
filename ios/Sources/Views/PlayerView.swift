@@ -74,8 +74,11 @@ struct PlayerView: View {
             // 最後の項目も盤に隠れず読める位置まで上げられる。
             .safeAreaInset(edge: .bottom, spacing: 0) { dock }
         }
-        // 横から入ってくる間に後ろの画面が透けないよう、自前の下地を持つ
-        .background(Color(.systemBackground).ignoresSafeArea())
+        // 横から入ってくる間に後ろの画面が透けないよう、自前の下地を持つ。
+        // 聞き取りテストと同じ暗い紺にして、行き来しても見た目が切り替わらないようにする。
+        .background(NightBackdrop().ignoresSafeArea())
+        .foregroundStyle(.white)
+        .environment(\.colorScheme, .dark)
         .onAppear(perform: loadIfNeeded)
         .fullScreenCover(isPresented: $showListeningTest) {
             ListeningTestView(track: liveTrack, onClose: { showListeningTest = false })
@@ -93,33 +96,39 @@ struct PlayerView: View {
         HStack(spacing: 12) {
             Button(action: onClose) {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(.primary)
-                    .frame(width: 36, height: 36)
-                    .background(Circle().fill(Color.primary.opacity(0.06)))
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(.white)
+                    .frame(width: 38, height: 38)
+                    .background(Circle().fill(Color.white.opacity(0.10)))
             }
             .buttonStyle(.plain)
             .accessibilityLabel("一覧へ戻る")
             .accessibilityIdentifier("playerClose")
 
             VStack(alignment: .leading, spacing: 2) {
+                Text("NOW PLAYING")
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .tracking(2)
+                    .foregroundStyle(Night.cyan)
                 Text(liveTrack.displayName)
-                    .font(.system(.headline, design: .rounded))
-                    .lineLimit(1)
-                Text(positionCaption)
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
+                    .font(.system(.subheadline, design: .rounded).weight(.semibold))
                     .lineLimit(1)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
 
-            Spacer(minLength: 8)
+            // 聞き取りテストと同じ物差し(教材全体の何項目目か)
+            Text(positionCaption)
+                .font(.system(.subheadline, design: .rounded).monospacedDigit().weight(.medium))
+                .foregroundStyle(.white.opacity(0.6))
+                .lineLimit(1)
+                .accessibilityIdentifier("playerPosition")
 
             if isLive, !player.groups.isEmpty {
                 LearnedRing(learned: player.learnedGroups.count, total: player.groups.count)
             }
         }
         .padding(.horizontal, 16)
-        .padding(.top, 6)
+        .padding(.top, 8)
         .padding(.bottom, 10)
     }
 
@@ -170,8 +179,8 @@ struct PlayerView: View {
         .background(alignment: .bottom) {
             LinearGradient(
                 stops: [
-                    .init(color: Color(.systemBackground).opacity(0), location: 0),
-                    .init(color: Color(.systemBackground), location: 0.35),
+                    .init(color: Night.indigo.opacity(0), location: 0),
+                    .init(color: Night.indigo, location: 0.35),
                 ],
                 startPoint: .top, endPoint: .bottom
             )
@@ -225,8 +234,9 @@ struct PlayerView: View {
                 let fraction = player.effectiveDuration > 0
                     ? min(max(displayedTime / player.effectiveDuration, 0), 1) : 0
                 ZStack(alignment: .leading) {
-                    Capsule().fill(Color.primary.opacity(0.10))
-                    Capsule().fill(Color.accentColor)
+                    Capsule().fill(Color.white.opacity(0.12))
+                    Capsule()
+                        .fill(LinearGradient(colors: [Night.cyan, Night.blue], startPoint: .leading, endPoint: .trailing))
                         .frame(width: max(geo.size.width * fraction, 3))
                 }
             }
@@ -273,16 +283,18 @@ struct PlayerView: View {
                     ForEach(Array(lines.enumerated()), id: \.element.id) { index, line in
                         Text(line.text)
                             .font(index == 0 ? .body : .subheadline)
-                            .foregroundStyle(index == 0 ? Color.primary : Color.secondary)
+                            .foregroundStyle(index == 0 ? Color.white : Color.white.opacity(0.55))
                             .fixedSize(horizontal: false, vertical: true)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
                 .dynamicTypeSize(settings.textSize)
                 .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                .listRowBackground(Color.clear)
             }
         }
         .listStyle(.plain)
+        .scrollContentBackground(.hidden)
         .accessibilityIdentifier("previewList")
     }
 
@@ -373,7 +385,7 @@ struct PlayerView: View {
                     .accessibilityIdentifier("duration")
             }
             .font(.caption2.monospacedDigit().weight(.medium))
-            .foregroundStyle(.secondary)
+            .foregroundStyle(.white.opacity(0.55))
         }
     }
 
@@ -447,8 +459,8 @@ struct PlayerView: View {
             .accessibilityLabel("速度を上げる")
         }
         .buttonStyle(.plain)
-        .foregroundStyle(.primary)
-        .background(Capsule().fill(Color.primary.opacity(0.07)))
+        .foregroundStyle(.white)
+        .background(Capsule().fill(Color.white.opacity(0.09)))
     }
 
     /// 今の速度が刻みの何番目か。刻みに無い値なら、それ以下で一番近いものとみなす。
@@ -493,13 +505,8 @@ struct PlayerView: View {
             } label: {
                 ZStack {
                     Circle()
-                        .fill(
-                            LinearGradient(
-                                colors: [Color.accentColor.opacity(0.85), Color.accentColor],
-                                startPoint: .top, endPoint: .bottom
-                            )
-                        )
-                        .shadow(color: Color.accentColor.opacity(0.35), radius: 12, x: 0, y: 6)
+                        .fill(Night.glow)
+                        .shadow(color: Night.blue.opacity(0.55), radius: 16, x: 0, y: 6)
                     Image(systemName: showsPause ? "pause.fill" : "play.fill")
                         .font(.system(size: 28, weight: .bold))
                         .foregroundStyle(.white)
@@ -527,7 +534,7 @@ struct PlayerView: View {
             .accessibilityLabel("次の塊へ")
         }
         .buttonStyle(.plain)
-        .foregroundStyle(.primary)
+        .foregroundStyle(.white)
     }
 
     // MARK: - 処理
@@ -605,10 +612,11 @@ private struct Scrubber: View {
             let width = max(geo.size.width, 1)
             let fraction = total > 0 ? min(max(value / total, 0), 1) : 0
             ZStack(alignment: .leading) {
-                Capsule().fill(Color.primary.opacity(0.10))
+                Capsule().fill(Color.white.opacity(0.12))
                 Capsule()
-                    .fill(Color.accentColor)
+                    .fill(LinearGradient(colors: [Night.cyan, Night.blue], startPoint: .leading, endPoint: .trailing))
                     .frame(width: max(width * fraction, isDragging ? 10 : 5))
+                    .shadow(color: Night.cyan.opacity(0.5), radius: 6)
             }
             .frame(height: isDragging ? 10 : 5)
             .frame(maxHeight: .infinity, alignment: .bottom)
@@ -650,7 +658,7 @@ private struct Scrubber: View {
     }
 }
 
-/// 覚えた割合を小さな輪で示す。
+/// 覚えた数を小さな輪で示す。輪の満ち具合が全体に対する割合。
 private struct LearnedRing: View {
     let learned: Int
     let total: Int
@@ -658,24 +666,22 @@ private struct LearnedRing: View {
     private var fraction: Double { total > 0 ? Double(learned) / Double(total) : 0 }
 
     var body: some View {
-        HStack(spacing: 6) {
-            ZStack {
-                Circle().stroke(Color.primary.opacity(0.10), lineWidth: 3.5)
-                Circle()
-                    .trim(from: 0, to: fraction)
-                    .stroke(Color.accentColor, style: StrokeStyle(lineWidth: 3.5, lineCap: .round))
-                    .rotationEffect(.degrees(-90))
-            }
-            .frame(width: 22, height: 22)
-            VStack(alignment: .leading, spacing: 0) {
-                Text("覚えた")
-                    .font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(.secondary)
-                Text("\(learned)")
-                    .font(.system(size: 13, weight: .bold, design: .rounded))
-                    .monospacedDigit()
-            }
+        ZStack {
+            Circle().stroke(Color.white.opacity(0.10), lineWidth: 3)
+            Circle()
+                .trim(from: 0, to: fraction)
+                .stroke(
+                    LinearGradient(colors: [Night.green, Night.cyan], startPoint: .top, endPoint: .bottom),
+                    style: StrokeStyle(lineWidth: 3, lineCap: .round)
+                )
+                .rotationEffect(.degrees(-90))
+            Text("\(learned)")
+                .font(.system(size: learned >= 100 ? 10 : 12, weight: .bold, design: .rounded))
+                .monospacedDigit()
+                .minimumScaleFactor(0.6)
+                .padding(4)
         }
+        .frame(width: 38, height: 38)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("覚えた項目 \(learned) / \(total)")
     }
@@ -689,8 +695,14 @@ extension View {
             .labelStyle(.titleAndIcon)
             .padding(.horizontal, 14)
             .frame(height: 34)
-            .foregroundStyle(active ? Color.white : Color.primary)
-            .background(Capsule().fill(active ? Color.accentColor : Color.primary.opacity(0.07)))
+            .foregroundStyle(Color.white)
+            .background {
+                if active {
+                    Capsule().fill(Night.glow)
+                } else {
+                    Capsule().fill(Color.white.opacity(0.09))
+                }
+            }
             .contentShape(Capsule())
     }
 }
@@ -698,13 +710,11 @@ extension View {
 /// 操作盤の下地。字幕の上に浮いた札に見せる。
 private struct DockCard: View {
     var body: some View {
+        // 下を字幕が流れるので、透けない地にする(GlassCard は透ける)
         RoundedRectangle(cornerRadius: 28, style: .continuous)
-            .fill(Color(.secondarySystemGroupedBackground))
-            .shadow(color: .black.opacity(0.10), radius: 18, x: 0, y: 6)
-            .overlay(
-                RoundedRectangle(cornerRadius: 28, style: .continuous)
-                    .strokeBorder(Color.primary.opacity(0.06), lineWidth: 0.5)
-            )
+            .fill(Night.card)
+            .shadow(color: .black.opacity(0.35), radius: 20, x: 0, y: 8)
+            .overlay(GlassEdge(cornerRadius: 28))
     }
 }
 
@@ -712,7 +722,7 @@ private struct DockCard: View {
 private struct DockGrabber: View {
     var body: some View {
         Capsule()
-            .fill(Color.primary.opacity(0.18))
+            .fill(Color.white.opacity(0.25))
             .frame(width: 36, height: 5)
     }
 }

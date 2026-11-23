@@ -88,7 +88,7 @@ struct ListeningTestView: View {
             }
         }
         .foregroundStyle(.white)
-        .background(TestBackdrop().ignoresSafeArea())
+        .background(NightBackdrop().ignoresSafeArea())
         // テストの間だけ暗い画面にする。時計や電池の表示も白にそろう。
         .preferredColorScheme(.dark)
         .onAppear(perform: start)
@@ -121,15 +121,16 @@ struct ListeningTestView: View {
                 Text("LISTENING TEST")
                     .font(.system(size: 11, weight: .bold, design: .rounded))
                     .tracking(2)
-                    .foregroundStyle(TestPalette.cyan)
+                    .foregroundStyle(Night.cyan)
                 Text(track.displayName)
                     .font(.system(.subheadline, design: .rounded).weight(.semibold))
                     .lineLimit(1)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            if !queue.isEmpty, phase != .finished {
-                Text("\(min(position + 1, queue.count)) / \(queue.count)")
+            // プレイヤーと同じく、教材全体の何項目目かで示す
+            if let group = currentGroup, phase != .finished {
+                Text("\(group.id + 1) / \(groups.count)")
                     .font(.system(.subheadline, design: .rounded).monospacedDigit().weight(.medium))
                     .foregroundStyle(.white.opacity(0.6))
             }
@@ -156,15 +157,15 @@ struct ListeningTestView: View {
         .padding(.bottom, 12)
     }
 
-    /// この回のうち、どこまで進んだかの細い帯
+    /// 教材全体のどのあたりを出しているかの細い帯。プレイヤーの再生位置と同じ物差し。
     private var progressBar: some View {
         GeometryReader { geo in
-            let total = max(queue.count, 1)
-            let done = phase == .finished ? total : min(position, total)
+            let total = max(groups.count, 1)
+            let done = phase == .finished ? total : (currentGroup.map { $0.id + 1 } ?? 0)
             ZStack(alignment: .leading) {
                 Capsule().fill(Color.white.opacity(0.08))
                 Capsule()
-                    .fill(LinearGradient(colors: [TestPalette.cyan, TestPalette.blue],
+                    .fill(LinearGradient(colors: [Night.cyan, Night.blue],
                                          startPoint: .leading, endPoint: .trailing))
                     .frame(width: max(geo.size.width * CGFloat(done) / CGFloat(total), done > 0 ? 4 : 0))
                     .animation(.easeOut(duration: 0.3), value: done)
@@ -182,7 +183,7 @@ struct ListeningTestView: View {
         case .loading:
             ProgressView().tint(.white)
         case .empty:
-            message(icon: "checkmark.seal.fill", iconColor: TestPalette.green,
+            message(icon: "checkmark.seal.fill", iconColor: Night.green,
                     title: "出せる問題がありません",
                     detail: "この音源は、ぜんぶ覚えた印が付いています。")
         case .listening, .waiting:
@@ -208,12 +209,12 @@ struct ListeningTestView: View {
                     Circle()
                         .trim(from: 0, to: progress)
                         .stroke(
-                            AngularGradient(colors: [TestPalette.cyan, TestPalette.blue, TestPalette.violet, TestPalette.cyan],
+                            AngularGradient(colors: [Night.cyan, Night.blue, Night.violet, Night.cyan],
                                             center: .center),
                             style: StrokeStyle(lineWidth: 10, lineCap: .round)
                         )
                         .rotationEffect(.degrees(-90))
-                        .shadow(color: TestPalette.cyan.opacity(0.6), radius: 10)
+                        .shadow(color: Night.cyan.opacity(0.6), radius: 10)
                     if phase == .listening {
                         SoundBars(time: context.date.timeIntervalSinceReferenceDate)
                     } else {
@@ -231,7 +232,7 @@ struct ListeningTestView: View {
                 Text(phase == .listening ? "LISTENING" : "THINK")
                     .font(.system(size: 12, weight: .bold, design: .rounded))
                     .tracking(3)
-                    .foregroundStyle(TestPalette.cyan.opacity(0.9))
+                    .foregroundStyle(Night.cyan.opacity(0.9))
                 Text(phase == .listening ? "聞いています" : "訳を思い浮かべて")
                     .font(.system(.title3, design: .rounded).weight(.semibold))
                 Text("画面をタップすると答えが出ます")
@@ -280,7 +281,7 @@ struct ListeningTestView: View {
                 } label: {
                     Label("もう一度聞く", systemImage: "speaker.wave.2.fill")
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(TestPalette.cyan)
+                        .foregroundStyle(Night.cyan)
                         .padding(.horizontal, 14)
                         .frame(height: 36)
                         .background(Capsule().fill(Color.white.opacity(0.08)))
@@ -301,7 +302,7 @@ struct ListeningTestView: View {
         Text(text)
             .font(.system(size: 11, weight: .bold, design: .rounded))
             .tracking(2)
-            .foregroundStyle(TestPalette.cyan.opacity(0.85))
+            .foregroundStyle(Night.cyan.opacity(0.85))
     }
 
     /// 答えを見ずに「覚えた」を押したとき、何に印を付けたかを示す
@@ -310,7 +311,7 @@ struct ListeningTestView: View {
         if let toast {
             HStack(spacing: 8) {
                 Image(systemName: "checkmark.circle.fill")
-                    .foregroundStyle(TestPalette.green)
+                    .foregroundStyle(Night.green)
                 Text("覚えた")
                     .font(.footnote.weight(.bold))
                 Text(toast.text)
@@ -333,18 +334,18 @@ struct ListeningTestView: View {
         VStack(spacing: 22) {
             ZStack {
                 Circle()
-                    .fill(RadialGradient(colors: [TestPalette.cyan.opacity(0.35), .clear],
+                    .fill(RadialGradient(colors: [Night.cyan.opacity(0.35), .clear],
                                          center: .center, startRadius: 4, endRadius: 80))
                     .frame(width: 160, height: 160)
                 Image(systemName: "flag.checkered")
                     .font(.system(size: 46, weight: .semibold))
-                    .foregroundStyle(TestPalette.cyan)
+                    .foregroundStyle(Night.cyan)
             }
             Text("おわり")
                 .font(.system(.title, design: .rounded).weight(.bold))
             HStack(spacing: 12) {
-                stat("覚えた", knownCount, TestPalette.green)
-                stat("まだ", notYet.count, TestPalette.orange)
+                stat("覚えた", knownCount, Night.green)
+                stat("まだ", notYet.count, Night.orange)
             }
             .padding(.horizontal, 24)
             if !notYet.isEmpty {
@@ -356,10 +357,10 @@ struct ListeningTestView: View {
                         .frame(maxWidth: .infinity, minHeight: 54)
                         .background(
                             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                .fill(LinearGradient(colors: [TestPalette.cyan, TestPalette.blue],
+                                .fill(LinearGradient(colors: [Night.cyan, Night.blue],
                                                      startPoint: .topLeading, endPoint: .bottomTrailing))
                         )
-                        .shadow(color: TestPalette.blue.opacity(0.45), radius: 14, y: 6)
+                        .shadow(color: Night.blue.opacity(0.45), radius: 14, y: 6)
                 }
                 .buttonStyle(.plain)
                 .padding(.horizontal, 24)
@@ -399,7 +400,7 @@ struct ListeningTestView: View {
                 .multilineTextAlignment(.center)
             Button("終わる", action: onClose)
                 .font(.body.weight(.semibold))
-                .foregroundStyle(TestPalette.cyan)
+                .foregroundStyle(Night.cyan)
                 .padding(.top, 8)
         }
         .padding(32)
@@ -435,10 +436,10 @@ struct ListeningTestView: View {
                         .frame(maxWidth: .infinity, minHeight: 58)
                         .background(
                             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                .fill(LinearGradient(colors: [TestPalette.green, TestPalette.greenDeep],
+                                .fill(LinearGradient(colors: [Night.green, Night.greenDeep],
                                                      startPoint: .topLeading, endPoint: .bottomTrailing))
                         )
-                        .shadow(color: TestPalette.green.opacity(0.4), radius: 14, y: 6)
+                        .shadow(color: Night.green.opacity(0.4), radius: 14, y: 6)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -734,50 +735,6 @@ extension Notification.Name {
 
 // MARK: - 見た目の部品
 
-/// テスト画面の色。暗い紺の地に、青緑の光を差し色にする。
-private enum TestPalette {
-    static let cyan = Color(red: 0.35, green: 0.85, blue: 1.0)
-    static let blue = Color(red: 0.30, green: 0.50, blue: 1.0)
-    static let violet = Color(red: 0.62, green: 0.42, blue: 1.0)
-    static let green = Color(red: 0.25, green: 0.85, blue: 0.55)
-    static let greenDeep = Color(red: 0.10, green: 0.66, blue: 0.45)
-    static let orange = Color(red: 1.0, green: 0.68, blue: 0.30)
-    static let night = Color(red: 0.035, green: 0.05, blue: 0.12)
-    static let indigo = Color(red: 0.09, green: 0.10, blue: 0.26)
-}
-
-/// 暗い地と、輪の後ろにぼんやり灯る光
-private struct TestBackdrop: View {
-    var body: some View {
-        ZStack {
-            LinearGradient(colors: [TestPalette.night, TestPalette.indigo],
-                           startPoint: .top, endPoint: .bottom)
-            RadialGradient(colors: [TestPalette.blue.opacity(0.35), .clear],
-                           center: UnitPoint(x: 0.5, y: 0.42), startRadius: 10, endRadius: 320)
-            RadialGradient(colors: [TestPalette.violet.opacity(0.18), .clear],
-                           center: UnitPoint(x: 0.85, y: 0.05), startRadius: 0, endRadius: 260)
-        }
-    }
-}
-
-/// うっすら透けるカード。暗い地の上に重ねる。
-private struct GlassCard: View {
-    var cornerRadius: CGFloat = 28
-
-    var body: some View {
-        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-            .fill(Color.white.opacity(0.06))
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .strokeBorder(
-                        LinearGradient(colors: [Color.white.opacity(0.22), Color.white.opacity(0.04)],
-                                       startPoint: .top, endPoint: .bottom),
-                        lineWidth: 1
-                    )
-            )
-    }
-}
-
 /// 聞いている間、輪の中で揺れる音の棒
 private struct SoundBars: View {
     let time: TimeInterval
@@ -788,13 +745,13 @@ private struct SoundBars: View {
                 let phase = time * 5.2 + Double(i) * 0.9
                 let level = 0.35 + 0.65 * abs(sin(phase) * cos(phase * 0.43 + Double(i)))
                 Capsule()
-                    .fill(LinearGradient(colors: [TestPalette.cyan, TestPalette.blue],
+                    .fill(LinearGradient(colors: [Night.cyan, Night.blue],
                                          startPoint: .top, endPoint: .bottom))
                     .frame(width: 8, height: 18 + 52 * level)
             }
         }
         .frame(height: 74)
-        .shadow(color: TestPalette.cyan.opacity(0.5), radius: 8)
+        .shadow(color: Night.cyan.opacity(0.5), radius: 8)
     }
 }
 
