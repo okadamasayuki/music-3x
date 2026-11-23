@@ -70,7 +70,8 @@ struct RootView: View {
                                 onBackDragChanged: { dragX = max(0, $0) },
                                 onBackDragEnded: { translation, predicted in
                                     finish(translation: translation, predicted: predicted, width: width)
-                                }
+                                },
+                                onClose: { close(width: width) }
                             )
                         case .recall:
                             RecallPracticeView(

@@ -24,7 +24,7 @@ struct TranscriptView: View {
                 if visibleGroups.isEmpty {
                     emptyNotice
                 } else {
-                    LazyVStack(alignment: .leading, spacing: 4) {
+                    LazyVStack(alignment: .leading, spacing: 2) {
                         ForEach(visibleGroups) { group in
                             GroupBlock(
                                 group: group,
@@ -44,8 +44,8 @@ struct TranscriptView: View {
                             .id(group.id)
                         }
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
                 }
             }
             .overlay(alignment: .bottomTrailing) {
@@ -56,9 +56,10 @@ struct TranscriptView: View {
                     } label: {
                         Label("現在位置へ", systemImage: "location.fill")
                             .font(.footnote.weight(.semibold))
-                            .padding(.horizontal, 12).padding(.vertical, 8)
+                            .padding(.horizontal, 14).padding(.vertical, 9)
                             .background(Capsule().fill(Color.accentColor))
                             .foregroundStyle(.white)
+                            .shadow(color: Color.accentColor.opacity(0.35), radius: 10, x: 0, y: 4)
                     }
                     .padding(16)
                 }
@@ -131,27 +132,31 @@ private struct GroupBlock: View {
     let onToggleLearned: () -> Void
 
     var body: some View {
-        HStack(alignment: .top, spacing: 10) {
+        HStack(alignment: .top, spacing: 12) {
             // 丸印は状態の表示。押す場所はどこでもよいので、ここはただの絵にする
-            Image(systemName: isLearned ? "checkmark.circle.fill" : "circle")
-                .font(.title3)
-                .foregroundStyle(isLearned ? Color.accentColor : Color.secondary.opacity(0.5))
-                .padding(.top, 1)
+            LearnedMark(isLearned: isLearned)
+                .padding(.top, 2)
 
-            VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 2) {
                 ForEach(lines) { line in
                     CueRow(text: line.text, isCurrent: isPlaying)
                 }
             }
             // 大きさを変えるのは英文と訳だけ。印や操作の類はそのまま。
             .dynamicTypeSize(textSize)
-            .opacity(isLearned ? 0.4 : 1)
+            .opacity(isLearned ? 0.38 : 1)
         }
-        .padding(.vertical, 3)
+        .padding(.vertical, 8)
+        .padding(.horizontal, 12)
         .background(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(isPlaying ? Color.accentColor.opacity(0.12) : Color.clear)
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(isPlaying ? Color.accentColor.opacity(0.09) : Color.clear)
         )
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .strokeBorder(isPlaying ? Color.accentColor.opacity(0.22) : Color.clear, lineWidth: 1)
+        )
+        .animation(.easeOut(duration: 0.2), value: isPlaying)
         // 余白も含めて、項目のどこを押しても効くようにする
         .contentShape(Rectangle())
         // 二度押しを先に並べる。逆だと一度押しが先に取られて二度押しが効かない
@@ -166,20 +171,51 @@ private struct GroupBlock: View {
     }
 }
 
+/// 覚えた印。付いたものは塗りつぶしのチェック、未だのものは細い輪。
+private struct LearnedMark: View {
+    let isLearned: Bool
+
+    var body: some View {
+        ZStack {
+            if isLearned {
+                Circle().fill(Color.accentColor)
+                Image(systemName: "checkmark")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(.white)
+            } else {
+                Circle().strokeBorder(Color.secondary.opacity(0.35), lineWidth: 1.5)
+            }
+        }
+        .frame(width: 22, height: 22)
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isLearned)
+    }
+}
+
 /// 字幕 1 行。押した扱いは項目側でまとめて受ける。
+/// 英文は本文の大きさ、訳はひと回り小さくして、目が英文から先に入るようにする。
 private struct CueRow: View {
     let text: String
     let isCurrent: Bool
 
+    private var isTranslation: Bool { text.looksLikeTranslation }
+
     var body: some View {
         Text(text)
-            .font(.body)
-            .fontWeight(isCurrent ? .semibold : .regular)
-            .foregroundStyle(isCurrent ? Color.primary : Color.secondary)
+            .font(isTranslation ? .subheadline : .body)
+            .fontWeight(isCurrent ? (isTranslation ? .medium : .semibold) : .regular)
+            .foregroundStyle(color)
             .multilineTextAlignment(.leading)
             .fixedSize(horizontal: false, vertical: true)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.vertical, 1)
-            .padding(.horizontal, 6)
+    }
+
+    private var color: Color {
+        switch (isCurrent, isTranslation) {
+        case (true, false): return .primary
+        case (true, true): return Color.primary.opacity(0.7)
+        case (false, false): return Color.primary.opacity(0.55)
+        case (false, true): return Color.secondary.opacity(0.75)
+        }
     }
 }

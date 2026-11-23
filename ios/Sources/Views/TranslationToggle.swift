@@ -10,17 +10,8 @@ struct TranslationToggle: View {
         Button {
             settings.showTranslation.toggle()
         } label: {
-            Text("訳")
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(settings.showTranslation ? Color.white : Color.secondary)
-                .frame(width: 40, height: 32)
-                .background(
-                    RoundedRectangle(cornerRadius: 9, style: .continuous)
-                        .fill(settings.showTranslation
-                              ? Color.accentColor
-                              : Color.secondary.opacity(0.18))
-                )
-                .contentShape(Rectangle())
+            Label("訳", systemImage: settings.showTranslation ? "captions.bubble.fill" : "captions.bubble")
+                .chipLabel(active: settings.showTranslation)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(settings.showTranslation ? "日本語訳を隠す" : "日本語訳を表示")
