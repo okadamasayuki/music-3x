@@ -44,6 +44,11 @@ struct ListeningTestView: View {
     @State private var questionStart = Date()
     /// 答えを見ずに「覚えた」を押したとき、何に印を付けたかを一瞬だけ示す
     @State private var toast: Toast?
+    /// 答えの画面に出している英文と訳。答えを出した時点で控えておく。
+    /// 次の問題へ進むと番号が先に変わるので、消えていく途中の答えに
+    /// 次の問題の中身が一瞬映ってしまうのを防ぐ。
+    @State private var shownEnglish: [String] = []
+    @State private var shownJapanese: [String] = []
 
     private struct Toast: Equatable {
         let id = UUID()
@@ -239,12 +244,10 @@ struct ListeningTestView: View {
 
     /// 答えの画面。英文と訳をカードに出し、もう一度聞けるようにする。
     private var answerView: some View {
-        let lines = currentGroup.map { $0.lines(in: cues).map(\.text) } ?? []
-        let english = lines.filter { !$0.looksLikeTranslation }
-        let japanese = lines.filter { $0.looksLikeTranslation }
+        let english = shownEnglish
+        let japanese = shownJapanese
 
-        return GeometryReader { geo in
-        ScrollView {
+        return ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 VStack(alignment: .leading, spacing: 8) {
                     sectionLabel("ENGLISH")
@@ -290,9 +293,6 @@ struct ListeningTestView: View {
             .background(GlassCard())
             .padding(.horizontal, 18)
             .padding(.vertical, 24)
-            // 短い答えは画面の真ん中に、長い答えは上から流す
-            .frame(minHeight: geo.size.height)
-        }
         }
         .dynamicTypeSize(settings.textSize)
     }
@@ -611,6 +611,9 @@ struct ListeningTestView: View {
         guard phase == .listening || phase == .waiting else { return }
         token += 1
         segment.stop()
+        let lines = currentGroup.map { $0.lines(in: cues).map(\.text) } ?? []
+        shownEnglish = lines.filter { !$0.looksLikeTranslation }
+        shownJapanese = lines.filter { $0.looksLikeTranslation }
         withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) { phase = .answer }
     }
 

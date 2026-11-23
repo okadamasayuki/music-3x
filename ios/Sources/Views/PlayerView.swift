@@ -26,6 +26,10 @@ struct PlayerView: View {
     @State private var previewGroups: [SubtitleGroup] = []
     /// 聞き取りテストを開いているか
     @State private var showListeningTest = false
+    /// 操作盤を下へ畳んでいるか。字幕を広く読みたいとき用。次に開いたときも保つ。
+    @AppStorage("playerDockCollapsed") private var dockCollapsed = false
+    /// 操作盤をなぞって下げている量
+    @State private var dockDrag: CGFloat = 0
 
     /// この画面の音源が、いま再生機に載っているか。
     private var isLive: Bool { player.currentTrackID == track.id }
@@ -148,27 +152,19 @@ struct PlayerView: View {
                 )
             }
 
-            VStack(spacing: 14) {
-                if settings.voiceControl { voiceStrip }
-                seekSection
-                transportButtons
-                utilityRow
+            Group {
+                if dockCollapsed {
+                    collapsedPanel
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                } else {
+                    controlPanel
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
             }
-            .padding(.horizontal, 18)
-            .padding(.top, 16)
-            .padding(.bottom, 14)
-            .background(
-                RoundedRectangle(cornerRadius: 28, style: .continuous)
-                    .fill(Color(.secondarySystemGroupedBackground))
-                    .shadow(color: .black.opacity(0.10), radius: 18, x: 0, y: 6)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 28, style: .continuous)
-                    .strokeBorder(Color.primary.opacity(0.06), lineWidth: 0.5)
-            )
             .padding(.horizontal, 12)
         }
-        .padding(.bottom, 4)
+        // 盤を少し下へ寄せる。ホームバーの手前までは使ってよい。
+        .padding(.bottom, dockCollapsed ? -6 : -14)
         // 盤の後ろで字幕がふっと消えるようにする。盤のまわりの隙間に文字が
         // 透けて見えると落ち着かないため。すりガラスは使わない(OpaqueBar 参照)。
         .background(alignment: .bottom) {
@@ -182,6 +178,86 @@ struct PlayerView: View {
             .padding(.top, -24)
             .ignoresSafeArea(edges: .bottom)
             .allowsHitTesting(false)
+        }
+    }
+
+    /// 開いた操作盤。上端のつまみを下へなぞると畳める。
+    private var controlPanel: some View {
+        VStack(spacing: 0) {
+            DockGrabber()
+                .padding(.top, 8)
+                .padding(.bottom, 8)
+            VStack(spacing: 0) {
+                if settings.voiceControl {
+                    voiceStrip.padding(.bottom, 8)
+                }
+                seekSection
+                transportButtons
+                    .padding(.top, 4)
+                utilityRow
+                    .padding(.top, 8)
+            }
+            .padding(.horizontal, 18)
+            .padding(.bottom, 14)
+        }
+        .background(DockCard())
+        // 下へなぞると指について下がり、離した所で畳むか戻すかを決める
+        .offset(y: dockDrag > 0 ? dockDrag : dockDrag / 4)
+        .gesture(
+            DragGesture(minimumDistance: 8)
+                .onChanged { value in dockDrag = value.translation.height }
+                .onEnded { value in
+                    let collapse = value.translation.height > 60 || value.predictedEndTranslation.height > 160
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                        if collapse { dockCollapsed = true }
+                        dockDrag = 0
+                    }
+                }
+        )
+        .accessibilityAction(named: "操作盤を畳む") { setDock(collapsed: true) }
+    }
+
+    /// 畳んだ操作盤。つまみと再生位置の細い線だけを見せる。押すか上へなぞると開く。
+    private var collapsedPanel: some View {
+        VStack(spacing: 8) {
+            DockGrabber()
+            GeometryReader { geo in
+                let fraction = player.effectiveDuration > 0
+                    ? min(max(displayedTime / player.effectiveDuration, 0), 1) : 0
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Color.primary.opacity(0.10))
+                    Capsule().fill(Color.accentColor)
+                        .frame(width: max(geo.size.width * fraction, 3))
+                }
+            }
+            .frame(height: 3)
+        }
+        .padding(.top, 8)
+        .padding(.bottom, 12)
+        .padding(.horizontal, 24)
+        .frame(maxWidth: .infinity)
+        .background(DockCard())
+        .contentShape(Rectangle())
+        .onTapGesture { setDock(collapsed: false) }
+        .gesture(
+            DragGesture(minimumDistance: 8)
+                .onEnded { value in
+                    if value.translation.height < -20 || value.predictedEndTranslation.height < -60 {
+                        setDock(collapsed: false)
+                    }
+                }
+        )
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("操作盤を開く")
+        .accessibilityAddTraits(.isButton)
+        .accessibilityAction { setDock(collapsed: false) }
+        .accessibilityIdentifier("dockExpand")
+    }
+
+    private func setDock(collapsed: Bool) {
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+            dockCollapsed = collapsed
+            dockDrag = 0
         }
     }
 
@@ -268,7 +344,7 @@ struct PlayerView: View {
     }
 
     private var seekSection: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 1) {
             Scrubber(
                 value: displayedTime,
                 total: player.effectiveDuration,
@@ -535,7 +611,8 @@ private struct Scrubber: View {
                     .frame(width: max(width * fraction, isDragging ? 10 : 5))
             }
             .frame(height: isDragging ? 10 : 5)
-            .frame(maxHeight: .infinity)
+            .frame(maxHeight: .infinity, alignment: .bottom)
+            .padding(.bottom, 3)
             .contentShape(Rectangle())
             .gesture(
                 DragGesture(minimumDistance: 0)
@@ -555,7 +632,7 @@ private struct Scrubber: View {
             )
             .animation(.spring(response: 0.25, dampingFraction: 0.8), value: isDragging)
         }
-        .frame(height: 22)
+        .frame(height: 20)
         .accessibilityElement()
         .accessibilityLabel("再生位置")
         .accessibilityValue(TimeFormatter.string(from: value))
@@ -615,6 +692,28 @@ extension View {
             .foregroundStyle(active ? Color.white : Color.primary)
             .background(Capsule().fill(active ? Color.accentColor : Color.primary.opacity(0.07)))
             .contentShape(Capsule())
+    }
+}
+
+/// 操作盤の下地。字幕の上に浮いた札に見せる。
+private struct DockCard: View {
+    var body: some View {
+        RoundedRectangle(cornerRadius: 28, style: .continuous)
+            .fill(Color(.secondarySystemGroupedBackground))
+            .shadow(color: .black.opacity(0.10), radius: 18, x: 0, y: 6)
+            .overlay(
+                RoundedRectangle(cornerRadius: 28, style: .continuous)
+                    .strokeBorder(Color.primary.opacity(0.06), lineWidth: 0.5)
+            )
+    }
+}
+
+/// 畳む・開くのつまみ
+private struct DockGrabber: View {
+    var body: some View {
+        Capsule()
+            .fill(Color.primary.opacity(0.18))
+            .frame(width: 36, height: 5)
     }
 }
 
