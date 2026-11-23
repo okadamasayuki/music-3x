@@ -9,6 +9,10 @@ import UIKit
 ///
 /// 項目をまるごと鳴らすと訳まで読み上げて答えが聞こえてしまうので、
 /// 鳴らすのは項目の頭から最初の訳の手前まで。
+///
+/// プレイヤーとは位置でつながっている。開くとプレイヤーで聞いていた項目から
+/// 順に出題し、問題が進むたびにプレイヤーの位置も同じ項目へ動かす。
+/// 閉じれば、テストで進んだ所からそのまま聞き続けられる。
 struct ListeningTestView: View {
     let track: Track
     var onClose: () -> Void
@@ -22,7 +26,8 @@ struct ListeningTestView: View {
     /// 鳴り終えてから答えを出すまでの秒数。次回も同じ値で始める。
     @AppStorage("listenTestDelay") private var delay: Double = 3
     /// 出題の順番を混ぜるか。教材の並び順で覚えてしまうのを避けたいとき用。
-    @AppStorage("listenTestShuffle") private var shuffle = true
+    /// ふだんはプレイヤーの位置から順に進めたいので、既定は混ぜない。
+    @AppStorage("listenTestShuffle") private var shuffle = false
 
     private enum Phase: Equatable { case loading, listening, waiting, answer, finished, empty }
 
@@ -42,6 +47,8 @@ struct ListeningTestView: View {
     @State private var notYet: [Int] = []
     /// 直前に覚えた印を付けた項目。押し間違えたときに取り消せるように覚えておく。
     @State private var lastMarked: Int?
+    /// この回を始めた項目。「最初からやり直す」はここから出し直す。
+    @State private var sessionStart = 0
 
     private static let delayChoices: [Double] = [0, 1, 2, 3, 5, 8]
 
@@ -327,17 +334,56 @@ struct ListeningTestView: View {
             cues = SubtitleParser.parse(content)
             groups = cues.grouped()
         }
+        sessionStart = startingGroup()
+        // プレイヤーに別の音源が載っていたら、この音源へ載せ替える(鳴らしはしない)。
+        // テストの進み具合をプレイヤーの位置へ映すため。
+        if player.currentTrackID != track.id {
+            loadIntoPlayer(startAt: groups.indices.contains(sessionStart)
+                           ? groups[sessionStart].start : currentTrack.lastPosition)
+        }
         segment.load(url: library.audioURL(for: track))
-        buildQueue()
+        buildQueue(from: sessionStart)
         // 画面が開ききってから鳴らす。開く途中で鳴り出すと頭を聞き逃す。
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { startQuestion() }
     }
 
+    /// ライブラリ側の最新の音源情報(止めた位置などは開いた後にも変わる)
+    private var currentTrack: Track {
+        library.tracks.first(where: { $0.id == track.id }) ?? track
+    }
+
+    /// テストを始める項目。プレイヤーにこの音源が載っていればいま聞いている項目、
+    /// 載っていなければ前回止めた位置の項目。
+    private func startingGroup() -> Int {
+        if player.currentTrackID == track.id, let index = player.activeGroupIndex,
+           groups.indices.contains(index) {
+            return index
+        }
+        let time = currentTrack.lastPosition
+        return groups.group(at: time) ?? groups.firstIndex(where: { $0.start >= time }) ?? 0
+    }
+
+    private func loadIntoPlayer(startAt: Double) {
+        let current = currentTrack
+        player.load(
+            audioURL: library.audioURL(for: current),
+            subtitleURL: library.subtitleURL(for: current),
+            title: current.displayName,
+            trackID: current.id,
+            startAt: startAt
+        )
+        player.applyLearned(library.learnedGroups(for: current.id, cueCount: player.cues.count))
+        player.speed = settings.defaultSpeed
+    }
+
     /// 覚えた印の付いていない、英語の部分がある項目を並べる。
-    private func buildQueue() {
+    /// 順番どおりのときは start の項目から最後まで出し、そのあと先頭へ戻って手前まで出す。
+    private func buildQueue(from start: Int) {
         let learned = library.learnedGroups(for: track.id, cueCount: cues.count)
-        var ids = groups.indices.filter { !learned.contains($0) && questionRange(of: groups[$0]) != nil }
-        if shuffle { ids.shuffle() }
+        let candidates = groups.indices.filter { !learned.contains($0) && questionRange(of: groups[$0]) != nil }
+        let ids = shuffle
+            ? candidates.shuffled()
+            : candidates.filter { $0 >= start } + candidates.filter { $0 < start }
         queue = ids
         position = 0
         knownCount = 0
@@ -349,7 +395,7 @@ struct ListeningTestView: View {
     private func restart() {
         token += 1
         segment.stop()
-        buildQueue()
+        buildQueue(from: sessionStart)
         startQuestion()
     }
 
@@ -378,12 +424,22 @@ struct ListeningTestView: View {
             advance()
             return
         }
+        follow(group)
         phase = .listening
         ringProgress = 0
         segment.play(from: range.start, to: range.end, rate: settings.defaultSpeed) {
             guard my == token, phase == .listening else { return }
             beginWaiting(my)
         }
+    }
+
+    /// プレイヤーの位置を、いま出している問題の項目へ合わせる。
+    /// 一覧の光る行もここへ動き、テストを閉じればこの項目から聞き続けられる。
+    private func follow(_ group: SubtitleGroup) {
+        guard player.currentTrackID == track.id else { return }
+        if player.isPlaying { player.pause() }
+        player.seek(to: group.start)
+        library.updatePosition(group.start, for: track.id)
     }
 
     /// 鳴り終えた。決めた秒数だけ待ってから答えを出す。
@@ -482,9 +538,12 @@ struct ListeningTestView: View {
         case "undo": undoLastMark()
         case "close": onClose()
         case "state":
-            NSLog("[TEST] listen phase=%@ muted=%@ pos=%d/%d group=%@ known=%d notYet=%d learned=%@",
+            NSLog("[TEST] listen phase=%@ muted=%@ pos=%d/%d group=%@ playerAt=%@ head=%@ tail=%@ known=%d notYet=%d learned=%@",
                   "\(phase)", String(segment.isHardMuted), position, queue.count,
                   currentGroup.map { String($0.id) } ?? "nil",
+                  player.activeGroupIndex.map(String.init) ?? "nil",
+                  queue.prefix(4).map(String.init).joined(separator: ","),
+                  queue.suffix(3).map(String.init).joined(separator: ","),
                   knownCount, notYet.count,
                   library.learnedGroups(for: track.id, cueCount: cues.count)
                       .sorted().map(String.init).joined(separator: ","))
