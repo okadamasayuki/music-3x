@@ -45,18 +45,18 @@ struct RecallListView: View {
                 .tightTop()
             }
         }
-        .navigationTitle("英作")
+        .navigationTitle("日→英")
         .navigationBarTitleDisplayMode(.inline)
     }
 
     private var emptyState: some View {
         VStack(spacing: 14) {
-            Image(systemName: "square.and.pencil")
+            Image(systemName: "character.bubble.ja")
                 .font(.system(size: 46))
                 .foregroundStyle(.tint)
             Text("音源がまだありません")
                 .font(.title3.weight(.semibold))
-            Text("ライブラリに字幕付きの音源を入れると、\n日本語から英文を思い出す練習ができます。")
+            Text("「英→日」に字幕付きの音源を入れると、\n日本語から英文を思い出す練習ができます。")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -127,7 +127,7 @@ struct RecallPracticeView: View {
                         HStack(spacing: 3) {
                             Image(systemName: "chevron.left")
                                 .font(.body.weight(.semibold))
-                            Text("英作")
+                            Text("日→英")
                         }
                         .contentShape(Rectangle())
                     }

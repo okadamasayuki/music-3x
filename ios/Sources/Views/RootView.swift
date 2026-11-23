@@ -159,14 +159,14 @@ struct RootView: View {
                 LibraryView(onOpen: { open(.player($0)) })
                     .safeAreaInset(edge: .bottom) { miniPlayer }
             }
-            .tabItem { Label("ライブラリ", systemImage: "music.note.list") }
+            .tabItem { Label("英→日", systemImage: "character.bubble") }
             .tag(Tab.library)
 
             NavigationStack {
                 RecallListView(onOpen: { open(.recall($0)) })
                     .safeAreaInset(edge: .bottom) { miniPlayer }
             }
-            .tabItem { Label("英作", systemImage: "square.and.pencil") }
+            .tabItem { Label("日→英", systemImage: "character.bubble.ja") }
             .tag(Tab.recall)
 
             NavigationStack {

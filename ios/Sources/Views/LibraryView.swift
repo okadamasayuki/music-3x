@@ -23,7 +23,7 @@ struct LibraryView: View {
                 trackList
             }
         }
-        .navigationTitle("ライブラリ")
+        .navigationTitle("英→日")
         .navigationBarTitleDisplayMode(.inline)
         .fileImporter(
             isPresented: $isImportingAudio,
@@ -184,7 +184,7 @@ struct LibraryView: View {
 
     private var emptyState: some View {
         VStack(spacing: 18) {
-            Image(systemName: "music.note.list")
+            Image(systemName: "character.bubble")
                 .font(.system(size: 52))
                 .foregroundStyle(.tint)
 
