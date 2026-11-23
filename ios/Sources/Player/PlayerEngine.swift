@@ -635,25 +635,40 @@ final class PlayerEngine: ObservableObject {
         seek(to: groups[index].start)
     }
 
+    /// 送り戻しで止まれる項目か。覚えた分を飛ばす設定のときは、印の付いた項目には止まらない。
+    private func isStoppable(_ index: Int) -> Bool {
+        !(skipLearned && learnedGroups.contains(index))
+    }
+
+    /// 次に止まれる項目。覚えた項目は飛ばして、その先の未習項目を指す。
+    private var nextStoppableGroup: Int? {
+        guard let index = activeGroupIndex else { return nil }
+        return groups.indices.first { $0 > index && isStoppable($0) }
+    }
+
+    /// 前に止まれる項目。覚えた項目は飛ばして、その手前の未習項目を指す。
+    ///
+    /// 覚えた項目の頭へそのまま戻すと、着いた途端に飛ばしが働いて元の項目へ
+    /// 送り返され、そこから前へ一歩も戻れなくなる。初めから飛ばした先へ降りる。
+    private var previousStoppableGroup: Int? {
+        guard let index = activeGroupIndex else { return nil }
+        return groups.indices.last { $0 < index && isStoppable($0) }
+    }
+
     /// 次の塊の先頭へ。秒数で送るより、教材の切れ目で動くほうが聞き直しやすい。
     func goToNextGroup() {
-        guard let index = activeGroupIndex else { return }
-        let next = index + 1
-        guard groups.indices.contains(next) else { return }
+        guard let next = nextStoppableGroup else { return }
         seek(to: groups[next].start)
     }
 
-    /// 前の塊の先頭へ。先頭の塊にいるときはその頭へ戻す。
+    /// 前の塊の先頭へ。手前に止まれる項目がないときは、いまの項目の頭へ戻す。
     func goToPreviousGroup() {
         guard let index = activeGroupIndex else { return }
-        seek(to: groups[max(index - 1, 0)].start)
+        seek(to: groups[previousStoppableGroup ?? index].start)
     }
 
-    var hasPreviousGroup: Bool { (activeGroupIndex ?? 0) > 0 }
-    var hasNextGroup: Bool {
-        guard let index = activeGroupIndex else { return false }
-        return groups.indices.contains(index + 1)
-    }
+    var hasPreviousGroup: Bool { previousStoppableGroup != nil }
+    var hasNextGroup: Bool { nextStoppableGroup != nil }
 
     private func persistPosition() {
         guard let trackID = currentTrackID else { return }

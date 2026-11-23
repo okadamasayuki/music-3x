@@ -126,9 +126,33 @@ struct RootView: View {
                 case "music3x.recall.open":
                     selectedTab = .recall
                     if let first = library.tracks.first { open(.recall(first.id)) }
-                case "music3x.recall.back":
+                case "music3x.recall.back", "music3x.player.back":
                     close(width: max(screenWidth, 1))
+                case "music3x.player.open":
+                    selectedTab = .library
+                    if let first = library.tracks.first { open(.player(first.id)) }
+                case "music3x.player.play": player.play()
+                case "music3x.player.pause": player.pause()
+                case "music3x.player.prev": player.goToPreviousGroup()
+                case "music3x.player.next": player.goToNextGroup()
+                case "music3x.player.state":
+                    NSLog("[TEST] active=%@ playing=%@ learned=%@ hasPrev=%@ hasNext=%@ time=%.2f",
+                          player.activeGroupIndex.map(String.init) ?? "nil",
+                          String(player.isPlaying),
+                          player.learnedGroups.sorted().map(String.init).joined(separator: ","),
+                          String(player.hasPreviousGroup), String(player.hasNextGroup),
+                          player.currentTime)
                 default:
+                    if name.hasPrefix("music3x.player.jump."),
+                       let n = Int(name.split(separator: ".").last ?? "") {
+                        player.jumpToGroup(n)
+                        return
+                    }
+                    if name.hasPrefix("music3x.player.learn."),
+                       let n = Int(name.split(separator: ".").last ?? "") {
+                        toggleLearned(n)
+                        return
+                    }
                     if name.hasPrefix("music3x.recall.reveal."),
                        let n = Int(name.split(separator: ".").last ?? "") {
                         NotificationCenter.default.post(
@@ -314,8 +338,12 @@ struct RootView: View {
     }
 }
 
-/// タブの帯のすぐ上に出す、小さい再生操作板。
-/// 帯を押すとプレイヤー画面へ戻り、右端のボタンで止め直せる。
+/// タブの帯の上に浮かせて出す、小さい再生操作板。
+/// 押すとプレイヤー画面へ戻り、右端のボタンで止め直せる。
+///
+/// 帯に貼り付けると一覧の続きに見えて、操作板だと気づきにくい。
+/// 周りに余白を取って浮かせ、角を丸めた縁と影を付けて一枚の札に見せる。
+/// 塗りは単色にする(すりガラスは横から入る途中で後ろが透けるため。OpaqueBar 参照)。
 struct MiniPlayerBar: View {
     let title: String
     /// 今かかっている項目の字幕。空なら音源の名前を出す。
@@ -328,12 +356,17 @@ struct MiniPlayerBar: View {
 
     var body: some View {
         HStack(spacing: 12) {
+            // 小さなジャケット風の印。帯ではなく「再生中のもの」だと一目で分かるように
             Image(systemName: "music.note")
-                .font(.footnote.weight(.semibold))
+                .font(.body.weight(.semibold))
                 .foregroundStyle(.tint)
-                .frame(width: 22)
+                .frame(width: 40, height: 40)
+                .background(
+                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                        .fill(Color.accentColor.opacity(0.12))
+                )
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 6) {
                 // 帯が厚くなりすぎないよう 2 行までにする。
                 // ここは読むための場所ではなく、今どこかを知るための表示。
                 if lines.isEmpty {
@@ -365,20 +398,32 @@ struct MiniPlayerBar: View {
 
             Button(action: onToggle) {
                 Image(systemName: isPlaying ? "pause.fill" : "play.fill")
-                    .font(.title3)
+                    .font(.title2)
                     .foregroundStyle(.tint)
-                    .frame(width: 40, height: 40)
+                    .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("miniPlayerToggle")
             .accessibilityLabel(isPlaying ? "一時停止" : "再生")
         }
-        .padding(.leading, 14)
-        .padding(.trailing, 4)
-        .padding(.vertical, 6)
-        .opaqueBar()
-        .contentShape(Rectangle())
+        .padding(.leading, 10)
+        .padding(.trailing, 6)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color(.systemBackground))
+                .shadow(color: .black.opacity(0.14), radius: 10, x: 0, y: 3)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(Color(.separator), lineWidth: 0.75)
+        )
+        .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        // タブの帯から少し離して浮かせる。左右は浮いた帯の端とそろえる
+        .padding(.horizontal, 20)
+        .padding(.top, 6)
+        .padding(.bottom, 10)
         .onTapGesture(perform: onOpen)
         // 中の再生ボタンを外から押せるよう、ひとまとめにはしない
         .accessibilityElement(children: .contain)
