@@ -441,7 +441,7 @@ struct ListeningTestView: View {
                 if phase == .answer {
                     glassButton("まだ", systemImage: "arrow.right", id: "listeningTestNotYet", action: markNotYet)
                 } else {
-                    glassButton("答えを見る", systemImage: "eye", id: "listeningTestReveal", action: reveal)
+                    glassButton("答えを見る", systemImage: "lightbulb", id: "listeningTestReveal", action: reveal)
                 }
                 Button(action: markKnown) {
                     Label("覚えた", systemImage: "checkmark")
