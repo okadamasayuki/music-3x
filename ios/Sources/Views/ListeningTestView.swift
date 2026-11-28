@@ -209,9 +209,13 @@ struct ListeningTestView: View {
     private var listeningView: some View {
         VStack(spacing: 26) {
             TimelineView(.animation) { context in
-                let elapsed = context.date.timeIntervalSince(waitStart)
-                let progress = phase == .waiting && delay > 0 ? min(max(elapsed / delay, 0), 1) : 0
-                let remaining = max(0, Int((delay - elapsed).rounded(.up)))
+                // 待ちに入った直後の数コマは、時計の時刻が待ち始めより前のまま描かれることがある。
+                // そのまま引くと残りが設定より長くなり、1 秒の設定で「2」が一瞬出ていた。
+                // 残りは設定した秒数から 1 までの間に収める(最後に「0」も出さない)。
+                let elapsed = max(0, context.date.timeIntervalSince(waitStart))
+                let progress = phase == .waiting && delay > 0 ? min(elapsed / delay, 1) : 0
+                let total = max(1, Int(delay.rounded(.up)))
+                let remaining = min(total, max(1, Int((delay - elapsed).rounded(.up))))
                 ZStack {
                     Circle()
                         .stroke(Color.white.opacity(0.07), lineWidth: 10)
