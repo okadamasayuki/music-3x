@@ -27,7 +27,11 @@ struct PlayerView: View {
     /// 聞き取りテストを開いているか
     @State private var showListeningTest = false
     /// 操作盤を下へ畳んでいるか。字幕を広く読みたいとき用。次に開いたときも保つ。
-    @AppStorage("playerDockCollapsed") private var dockCollapsed = false
+    ///
+    /// 画面の状態は @State で持ち、保存は別に書く。@AppStorage を直に動かすと
+    /// withAnimation が効かず、押して開いたとき盤が瞬間移動していたため。
+    @State private var dockCollapsed = UserDefaults.standard.bool(forKey: PlayerView.dockCollapsedKey)
+    private static let dockCollapsedKey = "playerDockCollapsed"
     /// 操作盤をなぞって動かしている量
     @State private var dockDrag: CGFloat = 0
     /// いまのなぞりが縦向きか。横向きなら再生バーの操作なので盤は動かさない。
@@ -36,6 +40,8 @@ struct PlayerView: View {
     @State private var panelHeight: CGFloat = 0
     /// 字幕が再生位置に追従しているか(手で動かすと外れる)
     @State private var isFollowing = true
+    /// 盤の上に一瞬出す知らせ(「隠す」を押したとき)。id は出し直しの見分け用
+    @State private var dockNotice: (id: UUID, text: String)?
     /// 名前を変える欄を開いているか
     @State private var isRenaming = false
     @State private var renameText = ""
@@ -103,6 +109,15 @@ struct PlayerView: View {
         // 検証用: 手で字幕を動かしたのと同じく追従を外す(TestSignals 参照)
         .onReceive(NotificationCenter.default.publisher(for: .music3xUnfollow)) { _ in
             isFollowing = false
+        }
+        // 検証用: 盤を押したとき・「隠す」を押したときと同じ道をたどる(TestSignals 参照)
+        .onReceive(NotificationCenter.default.publisher(for: .music3xDock)) { note in
+            switch note.userInfo?["action"] as? String {
+            case "open": setDock(collapsed: false)
+            case "close": setDock(collapsed: true)
+            case "hidelearned": toggleHideLearned()
+            default: break
+            }
         }
         // 検証用の合図でテストを開ける(TestSignals 参照)
         .onReceive(NotificationCenter.default.publisher(for: .music3xListeningTest)) { note in
@@ -226,6 +241,16 @@ struct PlayerView: View {
                             .transition(.opacity.combined(with: .scale(scale: 0.9)))
                     }
                 }
+                // 「隠す」の知らせは左上に出す。右の「現在位置へ」と重ならないように
+                .overlay(alignment: .topLeading) {
+                    if dockNotice != nil {
+                        dockNoticeView
+                            .padding(.leading, 16)
+                            .offset(y: -(Self.followButtonHeight + 16))
+                            .transition(.opacity)
+                            .allowsHitTesting(false)
+                    }
+                }
                 .offset(y: dockOverPull)
         }
         .onPreferenceChange(PanelHeightKey.self) { height in
@@ -257,7 +282,10 @@ struct PlayerView: View {
     /// (その下にもホームバーの分だけ盤が見える)。
     private static let dockPeek: CGFloat = 30
 
-    /// 盤の置き場所の高さ。nil なら盤そのものの高さ。
+    /// 盤の置き場所の高さ。nil なら盤そのものの高さ(測り終える前だけ)。
+    ///
+    /// 開いているときも nil にせず測った高さを返す。nil と数値の間は補間されず、
+    /// 押して開け閉めしたとき盤がなめらかに動かないため。
     private var dockLayoutHeight: CGFloat? {
         let full = panelHeight
         if dockCollapsed {
@@ -265,7 +293,8 @@ struct PlayerView: View {
             // 上へなぞった分だけ、隠れていた部分を出していく
             return min(full, Self.dockPeek + max(0, -dockDrag))
         }
-        guard full > 0, dockDrag > 0 else { return nil }
+        guard full > 0 else { return nil }
+        guard dockDrag > 0 else { return full }
         // 下へなぞった分だけ沈める。開いているときは 14 下げてあるので、その分を足して止める
         return max(Self.dockPeek + 14, full - dockDrag)
     }
@@ -355,11 +384,13 @@ struct PlayerView: View {
         .accessibilityIdentifier("followCurrent")
     }
 
+    /// 盤を開け閉めする。押したときも、指で持ち上げたのと同じように滑らせて動かす。
     private func setDock(collapsed: Bool) {
-        withAnimation(.spring(response: 0.38, dampingFraction: 0.86)) {
+        withAnimation(.spring(response: 0.42, dampingFraction: 0.86)) {
             dockCollapsed = collapsed
             dockDrag = 0
         }
+        UserDefaults.standard.set(collapsed, forKey: Self.dockCollapsedKey)
     }
 
     // MARK: - 別の音源が鳴っている間の下読み
@@ -497,12 +528,71 @@ struct PlayerView: View {
     }
 
     /// 文字の大きさと再生速度。どちらも一段ずつ動かす同じ形の札にそろえる。
+    /// 真ん中(再生ボタンの真下)に、覚えた項目を字幕から隠す切り替えを置く。
     private var adjustRow: some View {
-        HStack {
-            textSizeStepper
-            Spacer(minLength: 8)
-            speedStepper
+        ZStack {
+            HStack {
+                textSizeStepper
+                Spacer(minLength: 8)
+                speedStepper
+            }
+            hideLearnedToggle
         }
+    }
+
+    /// 覚えた項目を字幕から隠すかどうか。設定画面と同じ値を動かす。
+    /// 隠している間は札を光らせる。目の形の絵は怖いと言われたので使わず、
+    /// 一覧の覚えた印と同じチェックの輪で「覚えたものを隠す」と示す。
+    private var hideLearnedToggle: some View {
+        Button(action: toggleHideLearned) {
+            HStack(spacing: 3) {
+                Image(systemName: settings.hideLearned ? "checkmark.circle.fill" : "checkmark.circle")
+                Text("隠す")
+            }
+            .font(.footnote.weight(.semibold))
+            .padding(.horizontal, 10)
+            .frame(height: 34)
+            .foregroundStyle(Color.white)
+            .background {
+                if settings.hideLearned {
+                    Capsule().fill(Night.glow)
+                } else {
+                    Capsule().fill(Color.white.opacity(0.09))
+                }
+            }
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("覚えた項目を字幕から隠す")
+        .accessibilityValue(settings.hideLearned ? "オン" : "オフ")
+        .accessibilityIdentifier("hideLearnedToggle")
+    }
+
+    private func toggleHideLearned() {
+        settings.hideLearned.toggle()
+        showDockNotice(settings.hideLearned ? "覚えた項目を隠しました" : "覚えた項目も表示します")
+    }
+
+    /// 盤の左上の外に短い知らせを出す。「隠す」が何をしたのか分かるように。
+    private func showDockNotice(_ text: String) {
+        let id = UUID()
+        withAnimation(.easeOut(duration: 0.2)) { dockNotice = (id, text) }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
+            guard dockNotice?.id == id else { return }
+            withAnimation(.easeIn(duration: 0.25)) { dockNotice = nil }
+        }
+    }
+
+    private var dockNoticeView: some View {
+        Text(dockNotice?.text ?? "")
+            .font(.footnote.weight(.semibold))
+            .padding(.horizontal, 14)
+            .frame(height: Self.followButtonHeight)
+            .background(Capsule().fill(Night.card))
+            .overlay(Capsule().strokeBorder(Color.white.opacity(0.12), lineWidth: 1))
+            .foregroundStyle(.white)
+            .shadow(color: .black.opacity(0.3), radius: 10, x: 0, y: 4)
+            .accessibilityIdentifier("dockNotice")
     }
 
     /// 字幕の文字の大きさ。設定画面のつまみと同じ値を動かす。
@@ -857,5 +947,7 @@ private struct PanelHeightKey: PreferenceKey {
 extension Notification.Name {
     /// 検証用: 字幕の追従を外す合図
     static let music3xUnfollow = Notification.Name("music3xUnfollow")
+    /// 検証用: 操作盤の開け閉めと「隠す」の合図
+    static let music3xDock = Notification.Name("music3xDock")
 }
 

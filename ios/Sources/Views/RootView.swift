@@ -147,6 +147,10 @@ struct RootView: View {
                     if let first = library.tracks.first { open(.player(first.id)) }
                 case "music3x.player.unfollow":
                     NotificationCenter.default.post(name: .music3xUnfollow, object: nil)
+                case "music3x.player.dock.open", "music3x.player.dock.close", "music3x.player.hidelearned":
+                    NotificationCenter.default.post(
+                        name: .music3xDock, object: nil,
+                        userInfo: ["action": String(name.split(separator: ".").last ?? "")])
                 case "music3x.player.play": player.play()
                 case "music3x.player.pause": player.pause()
                 case "music3x.player.prev": player.goToPreviousGroup()

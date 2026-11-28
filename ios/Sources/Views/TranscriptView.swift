@@ -58,6 +58,10 @@ struct TranscriptView: View {
                 if following { scroll(proxy, animated: true) }
             }
             .onAppear { scroll(proxy, animated: false) }
+            // 覚えた項目を隠す・出すと並びが変わるので、今の項目を見失わないよう寄せ直す
+            .onChange(of: settings.hideLearned) { _ in
+                if isFollowing { scroll(proxy, animated: false) }
+            }
             .simultaneousGesture(
                 // 手で動かしたら追従を止める。読み返している最中に引き戻されると邪魔なため。
                 DragGesture().onChanged { _ in isFollowing = false }
@@ -72,7 +76,7 @@ struct TranscriptView: View {
                 .foregroundStyle(.tint)
             Text("すべて覚えた印が付いています")
                 .font(.subheadline.weight(.medium))
-            Text("設定で「覚えた項目を字幕から隠す」を切ると表示されます。")
+            Text("操作盤の「隠す」か、設定の「覚えた項目を字幕から隠す」を切ると表示されます。")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
