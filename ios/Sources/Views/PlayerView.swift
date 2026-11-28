@@ -40,8 +40,6 @@ struct PlayerView: View {
     @State private var panelHeight: CGFloat = 0
     /// 字幕が再生位置に追従しているか(手で動かすと外れる)
     @State private var isFollowing = true
-    /// 盤の上に一瞬出す知らせ(「隠す」を押したとき)。id は出し直しの見分け用
-    @State private var dockNotice: (id: UUID, text: String)?
     /// 名前を変える欄を開いているか
     @State private var isRenaming = false
     @State private var renameText = ""
@@ -239,16 +237,6 @@ struct PlayerView: View {
                             // ときと同じ位置関係のまま、盤と一緒に動く。
                             .offset(y: -(Self.followButtonHeight + 16))
                             .transition(.opacity.combined(with: .scale(scale: 0.9)))
-                    }
-                }
-                // 「隠す」の知らせは左上に出す。右の「現在位置へ」と重ならないように
-                .overlay(alignment: .topLeading) {
-                    if dockNotice != nil {
-                        dockNoticeView
-                            .padding(.leading, 16)
-                            .offset(y: -(Self.followButtonHeight + 16))
-                            .transition(.opacity)
-                            .allowsHitTesting(false)
                     }
                 }
                 .offset(y: dockOverPull)
@@ -568,31 +556,9 @@ struct PlayerView: View {
         .accessibilityIdentifier("hideLearnedToggle")
     }
 
+    /// 切り替えたことは札の光り方と字幕の並びで分かるので、知らせは出さない(要らないと言われた)。
     private func toggleHideLearned() {
         settings.hideLearned.toggle()
-        showDockNotice(settings.hideLearned ? "覚えた項目を隠しました" : "覚えた項目も表示します")
-    }
-
-    /// 盤の左上の外に短い知らせを出す。「隠す」が何をしたのか分かるように。
-    private func showDockNotice(_ text: String) {
-        let id = UUID()
-        withAnimation(.easeOut(duration: 0.2)) { dockNotice = (id, text) }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
-            guard dockNotice?.id == id else { return }
-            withAnimation(.easeIn(duration: 0.25)) { dockNotice = nil }
-        }
-    }
-
-    private var dockNoticeView: some View {
-        Text(dockNotice?.text ?? "")
-            .font(.footnote.weight(.semibold))
-            .padding(.horizontal, 14)
-            .frame(height: Self.followButtonHeight)
-            .background(Capsule().fill(Night.card))
-            .overlay(Capsule().strokeBorder(Color.white.opacity(0.12), lineWidth: 1))
-            .foregroundStyle(.white)
-            .shadow(color: .black.opacity(0.3), radius: 10, x: 0, y: 4)
-            .accessibilityIdentifier("dockNotice")
     }
 
     /// 字幕の文字の大きさ。設定画面のつまみと同じ値を動かす。
